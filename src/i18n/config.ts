@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+export const LANGUAGES = {
+  en: { label: 'English', flag: '🇬🇧' },
+  cs: { label: 'Čeština', flag: '🇨🇿' },
+  sk: { label: 'Slovenčina', flag: '🇸🇰' },
+  pl: { label: 'Polski', flag: '🇵🇱' },
+  de: { label: 'Deutsch', flag: '🇩🇪' },
+  fr: { label: 'Français', flag: '🇫🇷' },
+  es: { label: 'Español', flag: '🇪🇸' },
+  pt: { label: 'Português', flag: '🇵🇹' },
+  it: { label: 'Italiano', flag: '🇮🇹' },
+  nl: { label: 'Nederlands', flag: '🇳🇱' },
+  sv: { label: 'Svenska', flag: '🇸🇪' },
+  no: { label: 'Norsk', flag: '🇳🇴' },
+  da: { label: 'Dansk', flag: '🇩🇰' },
+  fi: { label: 'Suomi', flag: '🇫🇮' },
+  hu: { label: 'Magyar', flag: '🇭🇺' },
+  ro: { label: 'Română', flag: '🇷🇴' },
+  bg: { label: 'Български', flag: '🇧🇬' },
+  ru: { label: 'Русский', flag: '🇷🇺' },
+  uk: { label: 'Українська', flag: '🇺🇦' },
+  zh: { label: '中文', flag: '🇨🇳' },
+  ja: { label: '日本語', flag: '🇯🇵' },
+  ko: { label: '한국어', flag: '🇰🇷' },
+  id: { label: 'Bahasa Indonesia', flag: '🇮🇩' },
+  vi: { label: 'Tiếng Việt', flag: '🇻🇳' },
+  hi: { label: 'हिन्दी', flag: '🇮🇳' },
+  tr: { label: 'Türkçe', flag: '🇹🇷' },
+} as const
