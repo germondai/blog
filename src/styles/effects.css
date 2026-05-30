@@ -1,0 +1,87 @@
+/* ── Beam effect ─────────────────────────────────────────────────────────── */
+@keyframes beam-pulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.beams-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+/* max opacity 0.03 keeps beams barely visible on dark backgrounds */
+.beam {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  animation: beam-pulse var(--beam-dur, 5s) ease-in-out infinite;
+  animation-delay: var(--beam-delay, 0s);
+}
+
+.beam-1 {
+  background: linear-gradient(0deg, transparent 43%, color-mix(in srgb, var(--beam-color) 3%, transparent) 50%, transparent 57%);
+}
+.beam-2 {
+  background: linear-gradient(137.5deg, transparent 43%, color-mix(in srgb, var(--beam-color) 3%, transparent) 50%, transparent 57%);
+}
+.beam-3 {
+  background: linear-gradient(275deg, transparent 43%, color-mix(in srgb, var(--beam-color) 3%, transparent) 50%, transparent 57%);
+}
+.beam-4 {
+  background: linear-gradient(52.5deg, transparent 43%, color-mix(in srgb, var(--beam-color) 2.5%, transparent) 50%, transparent 57%);
+}
+.beam-5 {
+  background: linear-gradient(220deg, transparent 43%, color-mix(in srgb, var(--beam-color) 2.5%, transparent) 50%, transparent 57%);
+}
+
+/* ── Particle effect ─────────────────────────────────────────────────────── */
+@keyframes particle-float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-80px) scale(0.75);
+    opacity: 0;
+  }
+}
+
+.particles-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: var(--particle-color);
+  animation: particle-float var(--dur, 12s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  /* opacity set via inline style (0.15–0.45 range) */
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .beam,
+  .particle {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
