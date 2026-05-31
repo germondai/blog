@@ -1,0 +1,52 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+// Trigger manually via: import { triggerFlare } from '@/stores/flare'
+---
+
+<div
+  id="flare-layer"
+  class="pointer-events-none fixed inset-0 overflow-hidden"
+  style="z-index:45"
+  aria-hidden="true"
+>
+</div>
+
+<script>
+  import { $flares, clearFlare } from '@/stores/flare'
+
+  $flares.subscribe((flares) => {
+    const layer = document.getElementById('flare-layer')
+    if (!layer) return
+
+    for (const flare of flares) {
+      if (layer.querySelector(`[data-flare-id="${flare.id}"]`)) continue
+
+      const el = document.createElement('div')
+      el.dataset.flareId = String(flare.id)
+      el.style.cssText = [
+        'position:fixed',
+        `left:${flare.x}px`,
+        `top:${flare.y}px`,
+        'width:260px',
+        'height:260px',
+        'margin-left:-130px',
+        'margin-top:-130px',
+        'border-radius:50%',
+        'background:radial-gradient(circle,var(--accent,#5535d8) 0%,transparent 65%)',
+        'pointer-events:none',
+        'transform:scale(0.05)',
+        'opacity:0.5',
+        'transition:transform 0.65s ease-out,opacity 0.65s ease-out',
+      ].join(';')
+      layer.appendChild(el)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.style.transform = 'scale(2.2)'
+          el.style.opacity = '0'
+        })
+      })
+      setTimeout(() => { el.remove(); clearFlare(flare.id) }, 700)
+    }
+  })
+</script>
