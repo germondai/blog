@@ -1,0 +1,74 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import SocialLinksPanel from '@/components/blog/SocialLinksPanel.astro'
+import TOC from '@/components/blog/TOC.astro'
+import type { TocEntry } from '@/lib/toc'
+import BaseLayout from './BaseLayout.astro'
+
+interface Props {
+  title: string
+  description: string
+  lang?: string
+  publishDate?: Date
+  updatedDate?: Date
+  tags?: string[]
+  ogImage?: string
+  alternateUrls?: Record<string, string>
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[]
+  toc?: TocEntry[]
+  currentPath?: string
+  shareUrl?: string
+}
+
+const {
+  title,
+  description,
+  lang = 'en',
+  publishDate,
+  updatedDate,
+  tags,
+  ogImage,
+  alternateUrls,
+  jsonLd,
+  toc,
+  currentPath,
+  shareUrl,
+} = Astro.props
+const hasToc = (toc?.length ?? 0) > 0
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  lang={lang}
+  ogType="article"
+  ogImage={ogImage}
+  publishDate={publishDate}
+  updatedDate={updatedDate}
+  tags={tags}
+  alternateUrls={alternateUrls}
+  jsonLd={jsonLd}
+  currentPath={currentPath}
+>
+  <div class="mx-auto max-w-5xl px-4 py-8">
+    <slot name="before" />
+    <slot name="header" />
+
+    <div class={hasToc ? 'lg:grid lg:grid-cols-[1fr_240px] lg:gap-10' : ''}>
+      <div class="min-w-0">
+        <slot />
+      </div>
+
+      {hasToc && toc && (
+        <aside class="hidden lg:block">
+          <div class="sticky top-24 space-y-5">
+            <TOC toc={toc} lang={lang} />
+            <SocialLinksPanel shareUrl={shareUrl} shareTitle={title} lang={lang} />
+          </div>
+        </aside>
+      )}
+    </div>
+  </div>
+</BaseLayout>
