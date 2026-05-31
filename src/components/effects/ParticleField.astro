@@ -1,0 +1,34 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+const COUNT = 25
+const seeded = (seed: number) => {
+  let s = seed
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0xffffffff
+    return (s >>> 0) / 0x100000000
+  }
+}
+const rand = seeded(137)
+const particles = Array.from({ length: COUNT }, (_, i) => ({
+  id: i,
+  left: (rand() * 95 + 2.5).toFixed(1),
+  top: (rand() * 90 + 5).toFixed(1),
+  size: (1 + rand() * 2.5).toFixed(1),
+  dur: (9 + rand() * 9).toFixed(1),
+  delay: (-(rand() * 12)).toFixed(1),
+  opacity: (0.12 + rand() * 0.22).toFixed(2),
+}))
+---
+
+<div class="particles-layer" aria-hidden="true">
+  {
+    particles.map((p) => (
+      <div
+        class="particle"
+        style={`left:${p.left}%;top:${p.top}%;width:${p.size}px;height:${p.size}px;--dur:${p.dur}s;--delay:${p.delay}s;opacity:${p.opacity}`}
+      />
+    ))
+  }
+</div>
