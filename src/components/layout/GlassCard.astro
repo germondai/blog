@@ -1,0 +1,22 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+interface Props {
+  class?: string
+  opacity?: number
+  blur?: number
+  tag?: 'div' | 'article' | 'section' | 'aside' | 'nav'
+  [key: string]: unknown
+}
+
+const { class: className = '', opacity = 0.08, blur = 20, tag: Tag = 'div', ...rest } = Astro.props
+---
+
+<Tag
+  class={`rounded-2xl border border-white/10 ${className}`}
+  style={`background:rgba(255,255,255,${opacity});backdrop-filter:blur(${blur}px);-webkit-backdrop-filter:blur(${blur}px)`}
+  {...rest}
+>
+  <slot />
+</Tag>

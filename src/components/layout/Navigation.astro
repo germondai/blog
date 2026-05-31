@@ -1,0 +1,303 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import { getRelativeLocaleUrl } from 'astro:i18n'
+import { t } from '@/i18n'
+import { LANGUAGES } from '@/i18n/config'
+import { resolveConfig } from '@/lib/config'
+import { getContentLangs } from '@/lib/content'
+import config from '../../../blog.config'
+
+interface Props {
+  lang: string
+  currentPath: string
+}
+
+const { lang, currentPath } = Astro.props
+const resolved = resolveConfig(config)
+const defaultLang = resolved.blog.defaultLanguage
+const i18n = t(lang)
+const langs = await getContentLangs()
+
+const home = lang === defaultLang ? '/' : `/${lang}`
+const blogBase = lang === defaultLang ? '/blog' : `/${lang}/blog`
+const tagBase = lang === defaultLang ? '/tag' : `/${lang}/tag`
+
+const navLinks = [
+  { href: home, label: i18n.nav.home },
+  { href: blogBase, label: i18n.nav.blog },
+  { href: tagBase, label: i18n.nav.tags },
+]
+
+const isActive = (path: string) =>
+  path === home
+    ? currentPath === path || currentPath === '/'
+    : currentPath === path || currentPath.startsWith(`${path}/`)
+
+const altLangs = langs.filter((l) => l !== lang)
+const altUrls: Record<string, string> = {}
+const is404 = currentPath === '/404' || currentPath.endsWith('/404')
+
+let basePath = currentPath
+if (lang !== defaultLang) {
+  if (basePath.startsWith(`/${lang}/`)) basePath = basePath.slice(`/${lang}`.length)
+  else if (basePath === `/${lang}`) basePath = '/'
+}
+
+// fall back to /blog if locale has no content yet
+const isSafeCrossLocale =
+  basePath === '/' ||
+  basePath === '/blog' ||
+  /^\/blog\/\d+\/?$/.test(basePath) ||
+  basePath === '/tag' ||
+  /^\/tag\/[^/]+\/?$/.test(basePath)
+
+const crossLocaleBase = isSafeCrossLocale ? basePath : '/blog'
+
+const noSlash = (url: string) => (url.length > 1 && url.endsWith('/') ? url.slice(0, -1) : url)
+
+for (const l of altLangs) {
+  if (is404) {
+    altUrls[l] = l === defaultLang ? '/' : `/${l}`
+  } else {
+    const clean = crossLocaleBase.replace(/^\//, '') || ''
+    const raw =
+      l === defaultLang
+        ? crossLocaleBase || '/'
+        : clean
+          ? noSlash(getRelativeLocaleUrl(l, clean))
+          : `/${l}`
+    altUrls[l] = noSlash(raw)
+  }
+}
+
+type LangMeta = { flag: string; label: string }
+const langMeta: Record<string, LangMeta> = Object.fromEntries(
+  langs.map((l) => [
+    l,
+    {
+      flag: (LANGUAGES as Record<string, LangMeta>)[l]?.flag ?? '🌐',
+      label: (LANGUAGES as Record<string, LangMeta>)[l]?.label ?? l.toUpperCase(),
+    },
+  ]),
+)
+const currentLangMeta = langMeta[lang] ?? { flag: '🌐', label: lang.toUpperCase() }
+---
+
+<header class="fixed top-0 inset-x-0 z-40 px-4 pt-3">
+  <div class="mx-auto max-w-4xl">
+    <div
+      class="flex items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr] gap-4 rounded-2xl border border-white/[0.06] px-4 py-2.5 transition-all"
+      style="background:rgba(9,9,15,0.45);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);box-shadow:0 4px 24px rgba(0,0,0,0.25),inset 0 1px 0 rgba(255,255,255,0.04)"
+      id="nav-bar"
+    >
+      <a
+        href={home}
+        class="flex items-center gap-2.5 shrink-0 group md:justify-self-start"
+        aria-label={`${resolved.profile.name} home`}
+      >
+        {
+          resolved.profile.avatar ? (
+            <img
+              src={resolved.profile.avatar}
+              alt={resolved.profile.name}
+              width={28}
+              height={28}
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+              class="rounded-full object-cover transition-all"
+              style="box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent),0 0 8px color-mix(in srgb,var(--accent) 30%,transparent)"
+            />
+          ) : (
+            <div
+              class="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
+              style="background:var(--accent)"
+            >
+              {resolved.profile.name[0]}
+            </div>
+          )
+        }
+        <span class="text-sm font-semibold text-white/80 transition-colors group-hover:text-white">
+          {resolved.profile.name}
+        </span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-0.5" aria-label="Main navigation">
+        {
+          navLinks.map((link) => (
+            <a
+              href={link.href}
+              class={`relative rounded-xl px-3 py-1.5 text-sm transition-all ${
+                isActive(link.href)
+                  ? 'text-white font-medium cursor-default'
+                  : 'text-white/50 hover:text-white/80'
+              }`}
+              aria-current={isActive(link.href) ? 'page' : undefined}
+            >
+              {isActive(link.href) && (
+                <span
+                  class="absolute inset-0 rounded-xl"
+                  style="background:color-mix(in srgb,var(--accent) 14%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)"
+                  aria-hidden="true"
+                />
+              )}
+              <span class="relative">{link.label}</span>
+            </a>
+          ))
+        }
+      </nav>
+
+      <div class="flex items-center gap-2 md:justify-self-end">
+        {
+          langs.length > 1 && (
+            <div class="relative" id="lang-switcher">
+              <!-- Current lang button -->
+              <button
+                type="button"
+                id="lang-toggle"
+                class="flex h-8 items-center gap-1.5 rounded-xl border border-white/[0.07] px-2.5 transition-all hover:border-white/15"
+                style="background:rgba(255,255,255,0.04)"
+                aria-label={i18n.ui.switchLanguage}
+                aria-haspopup="true"
+                aria-expanded="false"
+              >
+                <span class="text-base leading-none">{currentLangMeta.flag}</span>
+                <span class="text-xs font-medium text-white/55 uppercase">{lang}</span>
+                <svg class="h-3 w-3 text-white/30" viewBox="0 0 12 12" fill="none">
+                  <path d="M3 5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+
+              <!-- Dropdown -->
+              <div
+                id="lang-dropdown"
+                class="absolute right-0 top-full mt-2 hidden w-40 overflow-hidden rounded-xl border border-white/[0.07] py-1 shadow-xl"
+                style="background:rgba(9,9,15,0.96);backdrop-filter:blur(20px)"
+              >
+                {langs.map((l) => {
+                  const isCurrentLang = l === lang
+                  const url = isCurrentLang ? '' : (altUrls[l] ?? '/')
+                  const meta = langMeta[l] ?? { flag: '🌐', label: l.toUpperCase() }
+                  return isCurrentLang ? (
+                    <span
+                      class="flex cursor-default items-center gap-2.5 px-3 py-2 text-sm text-white"
+                      aria-current="true"
+                    >
+                      <span class="text-base">{meta.flag}</span>
+                      <span class="flex-1">{meta.label}</span>
+                      <svg class="h-3 w-3" style={`color:var(--accent)`} viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  ) : (
+                    <a
+                      href={url}
+                      class="flex items-center gap-2.5 px-3 py-2 text-sm text-white/45 transition-colors hover:bg-white/[0.04] hover:text-white/80"
+                    >
+                      <span class="text-base">{meta.flag}</span>
+                      <span class="flex-1">{meta.label}</span>
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        }
+
+        <button
+          type="button"
+          id="nav-toggle"
+          class="flex h-8 w-8 items-center justify-center rounded-xl border border-white/[0.07] text-white/50 transition-all hover:text-white/80 md:hidden"
+          style="background:rgba(255,255,255,0.04)"
+          aria-label={i18n.ui.toggleMenu}
+          aria-expanded="false"
+        >
+          <svg id="nav-icon-open" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 4.5h11M2 7.5h11M2 10.5h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <svg id="nav-icon-close" class="hidden" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 3l9 9M3 12l9-9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div
+      id="mobile-menu"
+      class="mt-2 hidden rounded-2xl border border-white/[0.07] p-2"
+      style="background:rgba(9,9,15,0.92);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)"
+    >
+      {
+        navLinks.map((link) => (
+          <a
+            href={link.href}
+            class={`flex items-center rounded-xl px-4 py-2.5 text-sm transition-all ${
+              isActive(link.href)
+                ? 'text-white font-medium'
+                : 'text-white/50 hover:text-white/80'
+            }`}
+            style={isActive(link.href) ? 'background:color-mix(in srgb,var(--accent) 14%,transparent)' : ''}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</header>
+
+<script>
+  // Use AbortController to clean up document-level listeners on each navigation
+  let navAC: AbortController | null = null
+
+  document.addEventListener('astro:page-load', () => {
+    navAC?.abort()
+    navAC = new AbortController()
+    const { signal } = navAC
+
+    const toggle = document.getElementById('nav-toggle')
+    const menu = document.getElementById('mobile-menu')
+    const iconOpen = document.getElementById('nav-icon-open')
+    const iconClose = document.getElementById('nav-icon-close')
+
+    document.querySelectorAll<HTMLAnchorElement>('nav a[aria-current="page"]').forEach((a) => {
+      a.addEventListener('click', (e) => e.preventDefault(), { signal })
+    })
+
+    toggle?.addEventListener('click', () => {
+      const isOpen = menu?.classList.toggle('hidden') === false
+      toggle.setAttribute('aria-expanded', String(isOpen))
+      iconOpen?.classList.toggle('hidden', isOpen)
+      iconClose?.classList.toggle('hidden', !isOpen)
+    }, { signal })
+
+    const langToggle = document.getElementById('lang-toggle')
+    const langDropdown = document.getElementById('lang-dropdown')
+
+    langToggle?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const isOpen = langDropdown?.classList.toggle('hidden') === false
+      langToggle.setAttribute('aria-expanded', String(isOpen))
+    }, { signal })
+
+    document.addEventListener('click', (e) => {
+      const target = e.target as Node
+      if (toggle && menu && !toggle.contains(target) && !menu.contains(target)) {
+        menu.classList.add('hidden')
+        toggle.setAttribute('aria-expanded', 'false')
+        iconOpen?.classList.remove('hidden')
+        iconClose?.classList.add('hidden')
+      }
+      if (langToggle && langDropdown) {
+        const switcher = langToggle.closest('#lang-switcher')
+        if (!switcher?.contains(target)) {
+          langDropdown.classList.add('hidden')
+          langToggle.setAttribute('aria-expanded', 'false')
+        }
+      }
+    }, { signal })
+  })
+</script>
