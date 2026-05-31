@@ -1,0 +1,134 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import type { SocialLink } from '@/types/config'
+
+interface Props {
+  socials: SocialLink[]
+}
+
+const { socials } = Astro.props
+
+const makeSvg = (paths: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+
+const ICON_SLUGS: Partial<Record<string, string>> = {
+  github: 'github',
+  twitter: 'twitter',
+  bluesky: 'bluesky',
+  instagram: 'instagram',
+  facebook: 'facebook',
+  youtube: 'youtube',
+  tiktok: 'tiktok',
+  twitch: 'twitch',
+  linkedin: 'linkedin',
+  discord: 'discord',
+  telegram: 'telegram',
+  reddit: 'reddit',
+  spotify: 'spotify',
+  dribbble: 'dribbble',
+  behance: 'behance',
+  medium: 'medium',
+  steam: 'steam',
+}
+
+// Inline SVG paths (viewBox 0 0 24 24, stroke-based) for platforms not on the icon service
+const SVG_ICONS: Partial<Record<string, string>> = {
+  threads:
+    '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>',
+  whatsapp: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  patreon:
+    '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+  kofi: '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>',
+  producthunt:
+    '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+  devto: '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
+  hashnode: '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
+  website:
+    '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/>',
+  email:
+    '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+}
+
+const LABEL: Record<string, string> = {
+  github: 'GitHub',
+  twitter: 'Twitter / X',
+  bluesky: 'Bluesky',
+  threads: 'Threads',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  twitch: 'Twitch',
+  linkedin: 'LinkedIn',
+  discord: 'Discord',
+  telegram: 'Telegram',
+  whatsapp: 'WhatsApp',
+  reddit: 'Reddit',
+  spotify: 'Spotify',
+  patreon: 'Patreon',
+  kofi: 'Ko-fi',
+  producthunt: 'Product Hunt',
+  dribbble: 'Dribbble',
+  behance: 'Behance',
+  devto: 'DEV.to',
+  hashnode: 'Hashnode',
+  medium: 'Medium',
+  steam: 'Steam',
+  website: 'Website',
+  email: 'Email',
+}
+---
+
+<div id="profile-socials-container" class="flex flex-wrap items-center justify-center gap-2">
+  {socials.map(({ platform, url }) => {
+    const slug = ICON_SLUGS[platform]
+    const svgPaths = SVG_ICONS[platform]
+    const label = LABEL[platform] ?? platform
+    const isEmail = url.startsWith('mailto:')
+    const iconUrl = slug ? `https://icons.germondai.com/icons?i=${slug}:mono:fff:full:transparent` : null
+    const svgHtml = svgPaths ? makeSvg(svgPaths) : null
+    return (
+      <a
+        href={url}
+        target={isEmail ? undefined : '_blank'}
+        rel={isEmail ? undefined : 'noopener noreferrer'}
+        aria-label={label}
+        title={label}
+        class="social-icon-link flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all hover:scale-110"
+        style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);opacity:0.48"
+        onmouseenter="this.style.opacity='0.92'"
+        onmouseleave="this.style.opacity='0.48'"
+      >
+        {iconUrl ? (
+          <img
+            src={iconUrl}
+            alt={label}
+            width={18}
+            height={18}
+            loading="lazy"
+            decoding="async"
+            class="social-icon-img"
+            data-fallback-text={label.slice(0, 2).toUpperCase()}
+          />
+        ) : svgHtml ? (
+          <Fragment set:html={svgHtml} />
+        ) : (
+          <span class="text-xs font-semibold">{label.slice(0, 2).toUpperCase()}</span>
+        )}
+      </a>
+    )
+  })}
+</div>
+
+<script>
+  document.querySelectorAll<HTMLImageElement>('.social-icon-img').forEach((img) => {
+    img.addEventListener('error', () => {
+      const span = document.createElement('span')
+      span.className = 'text-xs font-semibold'
+      span.textContent = img.dataset.fallbackText ?? '??'
+      img.replaceWith(span)
+    })
+  })
+</script>
