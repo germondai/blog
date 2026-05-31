@@ -1,0 +1,340 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import { ClientRouter } from 'astro:transitions'
+import DevPanel from '@/components/dev/DevPanel.astro'
+import BeamEffect from '@/components/effects/BeamEffect.astro'
+import LensFlare from '@/components/effects/LensFlare.astro'
+import NoiseBg from '@/components/effects/NoiseBg.astro'
+import ParticleField from '@/components/effects/ParticleField.astro'
+import Navigation from '@/components/layout/Navigation.astro'
+import JsonLd from '@/components/seo/JsonLd.astro'
+import MetaTags from '@/components/seo/MetaTags.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import { getThemeTokens } from '@/lib/themes'
+import config from '../../../blog.config'
+import '@/styles/global.css'
+import fontCss from '@/styles/font.css?raw'
+
+// Resolve primary Latin/400 woff2 for <link rel="preload"> - avoids FOUT on first render
+const primaryFontHref = (() => {
+  const blocks = fontCss.split('@font-face')
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i] ?? ''
+    if (
+      b.includes('font-weight: 400') &&
+      b.includes('font-style: normal') &&
+      b.includes('U+0000')
+    ) {
+      const m = b.match(/url\(([^)]+\.woff2)\)/)
+      if (m?.[1]) return m[1]
+    }
+  }
+  return null
+})()
+
+interface Props {
+  title: string
+  description: string
+  lang?: string
+  ogType?: 'website' | 'article'
+  ogImage?: string
+  publishDate?: Date
+  updatedDate?: Date
+  tags?: string[]
+  alternateUrls?: Record<string, string>
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[]
+  currentPath?: string
+}
+
+const {
+  title,
+  description,
+  lang = 'en',
+  ogType = 'website',
+  ogImage,
+  publishDate,
+  updatedDate,
+  tags,
+  alternateUrls,
+  jsonLd,
+  currentPath = Astro.url.pathname,
+} = Astro.props
+
+const resolved = resolveConfig(config)
+const i18n = t(lang)
+const tokens = getThemeTokens(resolved.appearance.theme)
+const accent = resolved.appearance.accentColor || tokens['--accent'] || '#5535d8'
+const cssVars = Object.entries({
+  ...tokens,
+  ...(resolved.appearance.accentColor
+    ? { '--accent': accent, '--beam-color': accent, '--particle-color': accent }
+    : {}),
+})
+  .map(([k, v]) => `${k}:${v}`)
+  .join(';')
+
+const canonicalBase = resolved.seo?.canonicalUrl?.replace(/\/$/, '') ?? ''
+const canonicalUrl = canonicalBase ? `${canonicalBase}${Astro.url.pathname}` : Astro.url.href
+
+const siteTitle = resolved.seo?.title ?? `${resolved.profile.name}'s Blog`
+const fullTitle = title === siteTitle ? title : `${title} – ${siteTitle}`
+const metaDesc = description || resolved.seo?.description || resolved.profile.bio || ''
+const ogImg =
+  ogImage ?? resolved.seo?.ogImage ?? (canonicalBase ? `${canonicalBase}/og.webp` : '/og.webp')
+
+const { beams, particles, lensFlares, noiseTexture } = resolved.effects
+
+const isDev = import.meta.env.DEV
+---
+
+<!doctype html>
+<html lang={lang} style={cssVars}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content={accent} />
+    <meta name="robots" content="index, follow" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{fullTitle}</title>
+
+    <ClientRouter />
+
+    <MetaTags
+      title={fullTitle}
+      description={metaDesc}
+      canonicalUrl={canonicalUrl}
+      siteName={siteTitle}
+      ogImage={ogImg}
+      ogType={ogType}
+      twitterHandle={resolved.seo?.twitterHandle}
+      publishDate={publishDate}
+      updatedDate={updatedDate}
+      tags={tags ?? resolved.seo?.keywords}
+      lang={lang}
+      alternateUrls={alternateUrls}
+    />
+
+    <link rel="icon" type="image/webp" href="/icon.webp" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.webp" />
+    <link rel="manifest" href="/manifest.json" />
+    {primaryFontHref && (
+      <link rel="preload" href={primaryFontHref} as="font" type="font/woff2" crossorigin />
+    )}
+    <link rel="preconnect" href="https://icons.germondai.com" />
+    <link rel="dns-prefetch" href="https://icons.germondai.com" />
+    <link rel="alternate" type="application/rss+xml" title={siteTitle} href="/rss.xml" />
+
+    {jsonLd && <JsonLd data={jsonLd} />}
+  </head>
+
+  <body>
+    <div transition:persist="effects-layer">
+      {beams && <BeamEffect />}
+      {particles && <ParticleField />}
+      {noiseTexture && <NoiseBg />}
+      {lensFlares && <LensFlare />}
+    </div>
+
+    <Navigation lang={lang} currentPath={currentPath} />
+
+    <main class="relative flex-1 pt-16" style="z-index:10">
+      <slot />
+    </main>
+
+    <footer
+      class="relative mt-20 border-t py-8 text-center text-sm"
+      style="z-index:10;border-color:rgba(255,255,255,0.05);color:rgba(255,255,255,0.25)"
+    >
+      <p>
+        {i18n.ui.madeBy}{' '}
+        <a
+          href="https://github.com/germondai"
+          class="underline-offset-2 transition-colors"
+          style="color:rgba(255,255,255,0.45)"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          @germondai
+        </a>
+      </p>
+    </footer>
+
+    {isDev && (
+      <div transition:persist="devpanel">
+        <DevPanel />
+      </div>
+    )}
+
+    <div
+      id="lightbox"
+      class="pointer-events-none fixed inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200"
+      style="z-index:9999"
+      role="dialog"
+      aria-modal="true"
+      aria-hidden="true"
+      aria-label={i18n.ui.preview}
+    >
+      <div id="lightbox-bg" class="absolute inset-0" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)"></div>
+
+      <div class="relative z-10 flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-2 px-1">
+          <span class="text-xs text-white/25">{i18n.ui.lightboxHint}</span>
+          <div class="flex items-center gap-1.5">
+            <button id="lb-zoom-out" class="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/50 transition-colors hover:text-white" style="background:rgba(255,255,255,0.06)" aria-label={i18n.ui.zoomOut}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+            <button id="lb-zoom-reset" class="flex h-7 items-center justify-center rounded-lg border border-white/10 px-2 text-xs text-white/50 transition-colors hover:text-white" style="background:rgba(255,255,255,0.06);min-width:42px" aria-label={i18n.ui.resetZoom}>100%</button>
+            <button id="lb-zoom-in" class="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/50 transition-colors hover:text-white" style="background:rgba(255,255,255,0.06)" aria-label={i18n.ui.zoomIn}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+            <button id="lightbox-close" class="ml-1 flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/50 transition-colors hover:text-white" style="background:rgba(255,255,255,0.06)" aria-label={i18n.ui.close}>
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 1l9 9M1 10L10 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="lb-viewport"
+          style="position:relative;overflow:hidden;cursor:grab;touch-action:none;
+            width:min(90vw,880px);height:min(82vh,680px);
+            border-radius:12px;
+            box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 24px 70px rgba(0,0,0,0.8);
+            background-image:
+              linear-gradient(45deg,rgba(255,255,255,0.035) 25%,transparent 25%),
+              linear-gradient(-45deg,rgba(255,255,255,0.035) 25%,transparent 25%),
+              linear-gradient(45deg,transparent 75%,rgba(255,255,255,0.035) 75%),
+              linear-gradient(-45deg,transparent 75%,rgba(255,255,255,0.035) 75%);
+            background-size:16px 16px;
+            background-position:0 0,0 8px,8px -8px,-8px 0;
+            background-color:rgba(0,0,0,0.3)"
+        >
+          <img
+            id="lightbox-img"
+            src=""
+            alt=""
+            loading="eager"
+            draggable="false"
+            style="position:absolute;left:50%;top:50%;
+                   transform:translate(-50%,-50%) scale(1);
+                   transform-origin:center center;
+                   max-width:none;max-height:none;
+                   user-select:none;-webkit-user-drag:none"
+          />
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('astro:page-load', () => {
+        const lb  = document.getElementById('lightbox') as HTMLElement | null
+        const vp  = document.getElementById('lb-viewport') as HTMLElement | null
+        const img = document.getElementById('lightbox-img') as HTMLImageElement | null
+        const bg  = document.getElementById('lightbox-bg')
+        const closeBtn    = document.getElementById('lightbox-close')
+        const zoomInBtn   = document.getElementById('lb-zoom-in')
+        const zoomOutBtn  = document.getElementById('lb-zoom-out')
+        const zoomResetBtn = document.getElementById('lb-zoom-reset')
+        if (!lb || !vp || !img) return
+
+        let px = 0, py = 0, zoom = 1
+
+        const commit = () => {
+          img.style.transform = `translate(calc(-50% + ${px}px), calc(-50% + ${py}px)) scale(${zoom})`
+          if (zoomResetBtn) zoomResetBtn.textContent = `${Math.round(zoom * 100)}%`
+          vp.style.cursor = zoom > 1.05 ? 'grab' : 'zoom-out'
+        }
+
+        const zoomTo = (z: number, pivX = 0, pivY = 0) => {
+          const ratio = z / zoom
+          px = pivX + (px - pivX) * ratio
+          py = pivY + (py - pivY) * ratio
+          zoom = Math.max(0.05, Math.min(10, z))
+          commit()
+        }
+
+        const resetPan = () => { px = 0; py = 0 }
+
+        const open = (src: string, alt: string) => {
+          img.src = src; img.alt = alt; resetPan(); zoom = 1
+
+          const init = () => {
+            const nw = img.naturalWidth  || 1
+            const nh = img.naturalHeight || 1
+            const vpW = vp.clientWidth, vpH = vp.clientHeight
+              const fit = Math.min(vpW / nw, vpH / nh)
+            zoomTo(Math.max(0.05, Math.min(2, fit)))
+          }
+
+          if (img.complete && img.naturalWidth) init()
+          else img.onload = init
+          lb!.style.opacity = '1'; lb!.style.pointerEvents = 'auto'
+          lb!.removeAttribute('aria-hidden')
+          document.body.style.overflow = 'hidden'
+        }
+
+        const close = () => {
+          lb!.style.opacity = '0'; lb!.style.pointerEvents = 'none'
+          lb!.setAttribute('aria-hidden', 'true')
+          document.body.style.overflow = ''
+          setTimeout(() => { img.src = ''; resetPan(); zoom = 1; commit() }, 200)
+        }
+
+        zoomInBtn?.addEventListener('click',  (e) => { e.stopPropagation(); zoomTo(zoom * 1.5) })
+        zoomOutBtn?.addEventListener('click', (e) => { e.stopPropagation(); zoomTo(zoom / 1.5) })
+        zoomResetBtn?.addEventListener('click', (e) => { e.stopPropagation(); resetPan(); zoomTo(1) })
+
+        vp.addEventListener('wheel', (e: WheelEvent) => {
+          e.preventDefault()
+          const r = vp.getBoundingClientRect()
+          zoomTo(zoom * (e.deltaY < 0 ? 1.15 : 0.87),
+            e.clientX - r.left - r.width  / 2,
+            e.clientY - r.top  - r.height / 2)
+        }, { passive: false })
+
+        let dn = false, hasMoved = false, sx = 0, sy = 0, spx = 0, spy = 0
+
+        vp.addEventListener('pointerdown', (e) => {
+          e.preventDefault()
+          dn = true; hasMoved = false
+          sx = e.clientX; sy = e.clientY; spx = px; spy = py
+          vp.setPointerCapture(e.pointerId)
+          vp.style.cursor = 'grabbing'
+        })
+
+        vp.addEventListener('pointermove', (e) => {
+          if (!dn) return
+          e.preventDefault()
+          const dx = e.clientX - sx, dy = e.clientY - sy
+          if (Math.abs(dx) + Math.abs(dy) > 4) hasMoved = true
+          px = spx + dx; py = spy + dy; commit()
+        }, { passive: false })
+
+        vp.addEventListener('pointerup', () => {
+          dn = false
+          vp.style.cursor = zoom > 1.05 ? 'grab' : 'zoom-out'
+          if (!hasMoved && zoom <= 1.05) close()
+        })
+
+        bg?.addEventListener('click', close)
+        closeBtn?.addEventListener('click', (e) => { e.stopPropagation(); close() })
+
+        document.querySelectorAll<HTMLImageElement>('.prose img:not([data-no-lightbox])').forEach((el) => {
+          el.style.cursor = 'zoom-in'
+          el.addEventListener('click', () => open(el.src, el.alt))
+        })
+
+        document.addEventListener('keydown', (e) => {
+          if (!lb || lb.style.opacity === '0') return
+          if (e.key === 'Escape')                  close()
+          if (e.key === '+' || e.key === '=')       zoomTo(zoom * 1.5)
+          if (e.key === '-')                        zoomTo(zoom / 1.5)
+          if (e.key === '0')                        { resetPan(); zoomTo(1) }
+        })
+      })
+    </script>
+  </body>
+</html>
