@@ -1,0 +1,37 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+interface Props {
+  tag: string
+  href?: string
+  class?: string
+}
+
+const { tag, href, class: className = '' } = Astro.props
+
+// Color-mix to ensure text is always legible: 60% accent + 40% white
+const style =
+  'background:color-mix(in srgb,var(--accent) 16%,transparent);' +
+  'color:color-mix(in srgb,var(--accent) 65%,#fff);' +
+  'border:1px solid color-mix(in srgb,var(--accent) 28%,transparent)'
+---
+
+{
+  href ? (
+    <a
+      href={href}
+      class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-all hover:opacity-80 ${className}`}
+      style={style}
+    >
+      {tag}
+    </a>
+  ) : (
+    <span
+      class={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${className}`}
+      style={style}
+    >
+      {tag}
+    </span>
+  )
+}
