@@ -1,0 +1,74 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import type { CollectionEntry } from 'astro:content'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import { postSlug } from '@/lib/content'
+import config from '../../../blog.config'
+
+interface Props {
+  prev?: CollectionEntry<'blog'>
+  next?: CollectionEntry<'blog'>
+  lang: string
+}
+
+const { prev, next, lang } = Astro.props
+const i18n = t(lang)
+const defaultLang = resolveConfig(config).blog.defaultLanguage
+const postUrl = (entry: CollectionEntry<'blog'>) => {
+  const slug = postSlug(entry.id, lang)
+  return lang === defaultLang ? `/blog/${slug}` : `/${lang}/blog/${slug}`
+}
+---
+
+{
+  (prev ?? next) && (
+    <nav class="mt-10 grid grid-cols-2 gap-4" aria-label="Post navigation">
+      <div>
+        {prev ? (
+          <a
+            href={postUrl(prev)}
+            class="group flex h-full flex-col rounded-2xl border border-white/[0.07] p-4 transition-all hover:border-white/15 hover:-translate-y-0.5"
+            style="background:rgba(255,255,255,0.04);backdrop-filter:blur(12px)"
+          >
+            <span class="mb-2 flex items-center gap-1.5 text-xs text-white/30 transition-colors group-hover:text-white/50">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M8 2L4 6l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              {i18n.blog.previousPost}
+            </span>
+            <span class="line-clamp-2 text-sm font-medium text-white/60 transition-colors group-hover:text-white/90">
+              {prev.data.title}
+            </span>
+          </a>
+        ) : (
+          <div />
+        )}
+      </div>
+
+      <div>
+        {next ? (
+          <a
+            href={postUrl(next)}
+            class="group flex h-full flex-col items-end rounded-2xl border border-white/[0.07] p-4 text-right transition-all hover:border-white/15 hover:-translate-y-0.5"
+            style="background:rgba(255,255,255,0.04);backdrop-filter:blur(12px)"
+          >
+            <span class="mb-2 flex items-center gap-1.5 text-xs text-white/30 transition-colors group-hover:text-white/50">
+              {i18n.blog.nextPost}
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span class="line-clamp-2 text-sm font-medium text-white/60 transition-colors group-hover:text-white/90">
+              {next.data.title}
+            </span>
+          </a>
+        ) : (
+          <div />
+        )}
+      </div>
+    </nav>
+  )
+}
