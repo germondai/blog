@@ -1,0 +1,142 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import { t } from '@/i18n'
+import type { TocEntry } from '@/lib/toc'
+
+interface Props {
+  toc: TocEntry[]
+  lang?: string
+  class?: string
+}
+
+const { toc, lang = 'en', class: className = '' } = Astro.props
+const i18n = t(lang)
+---
+
+{
+  toc.length > 0 && (
+    <div class={`text-sm ${className}`}>
+      <p class="mb-4 text-xs font-bold uppercase tracking-widest text-white/55">
+        {i18n.toc.title}
+      </p>
+      <nav aria-label="Table of contents" id="toc-nav">
+        <ul class="space-y-0">
+          {toc.map((entry) => (
+            <li>
+              <a
+                href={`#${entry.slug}`}
+                class="toc-link toc-h2 block truncate py-[5px] text-[0.8rem] leading-snug text-white/35 transition-colors duration-150 hover:text-white/65"
+                data-slug={entry.slug}
+                title={entry.text}
+              >
+                {entry.text}
+              </a>
+              {entry.children.length > 0 && (
+                <ul>
+                  {entry.children.map((child) => (
+                    <li>
+                      <a
+                        href={`#${child.slug}`}
+                        class="toc-link toc-h3 block truncate py-[4px] pl-3 text-[0.74rem] leading-snug text-white/25 transition-colors duration-150 hover:text-white/55"
+                        data-slug={child.slug}
+                        title={child.text}
+                      >
+                        {child.text}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
+  )
+}
+
+<style>
+  /* left border: faint guide normally, accent when active; avoids ::before positioning */
+  #toc-nav .toc-link {
+    display: block;
+    padding-left: 14px;
+    border-left: 2px solid rgba(255, 255, 255, 0.07);
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  #toc-nav .toc-link.active {
+    color: var(--accent) !important;
+    border-left-color: var(--accent);
+  }
+
+  /* H3 indentation is in the class, but border-left keeps the line aligned */
+  #toc-nav .toc-h3 {
+    border-left-width: 2px;
+  }
+
+  /* Heading anchor offset */
+  :global(.prose h2[id]),
+  :global(.prose h3[id]),
+  :global(.prose h4[id]) {
+    scroll-margin-top: 5.5rem;
+  }
+</style>
+
+<script>
+  let tocAC: AbortController | null = null
+
+  document.addEventListener('astro:page-load', () => {
+    tocAC?.abort()
+
+    const nav = document.getElementById('toc-nav')
+    const links = nav?.querySelectorAll<HTMLAnchorElement>('.toc-link') ?? []
+    const headings = document.querySelectorAll<HTMLElement>('.prose h2[id], .prose h3[id], .prose h4[id]')
+
+    if (!links.length || !headings.length) return
+
+    tocAC = new AbortController()
+    const { signal } = tocAC
+
+    const NAV_H = Math.round(parseFloat(getComputedStyle(document.documentElement).fontSize) * 5.5)
+    const headingOrder = Array.from(headings).map((h) => h.id)
+    const visible = new Set<string>()
+
+    const paint = () => {
+      if (visible.size > 0) {
+        links.forEach((l) => l.classList.toggle('active', visible.has(l.dataset.slug ?? '')))
+      } else {
+        const passed = headingOrder.filter((id) => {
+          const el = document.getElementById(id)
+          return el && el.getBoundingClientRect().top < NAV_H
+        })
+        const fallback = passed.at(-1) ?? headingOrder[0] ?? ''
+        links.forEach((l) => l.classList.toggle('active', l.dataset.slug === fallback))
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => (e.isIntersecting ? visible.add(e.target.id) : visible.delete(e.target.id)))
+        paint()
+      },
+      { rootMargin: `-${NAV_H}px 0px -20% 0px`, threshold: 0 },
+    )
+
+    headings.forEach((h) => observer.observe(h))
+    document.addEventListener('astro:before-swap', () => observer.disconnect(), { once: true, signal })
+
+    links.forEach((link) => {
+      link.addEventListener('click', (e) => {
+        const target = document.getElementById(link.dataset.slug ?? '')
+        if (!target) return
+        e.preventDefault()
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        history.pushState(null, '', `#${link.dataset.slug}`)
+      }, { signal })
+    })
+
+    paint()
+  })
+</script>
