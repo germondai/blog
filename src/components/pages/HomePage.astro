@@ -1,0 +1,107 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import { type CollectionEntry, getCollection } from 'astro:content'
+import PostCard from '@/components/blog/PostCard.astro'
+import BaseLayout from '@/components/layout/BaseLayout.astro'
+import Avatar from '@/components/profile/Avatar.astro'
+import SocialIcons from '@/components/profile/SocialIcons.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import { getContentLangs, postSlug } from '@/lib/content'
+import { calculateReadingTime } from '@/lib/reading-time'
+import { buildPersonJsonLd } from '@/lib/seo'
+import config from '../../../blog.config'
+
+interface Props {
+  lang: string
+}
+
+const { lang } = Astro.props
+const resolved = resolveConfig(config)
+const i18n = t(lang)
+const canonicalBase = resolved.seo?.canonicalUrl?.replace(/\/$/, '') ?? ''
+const canonicalUrl = canonicalBase ?? Astro.url.origin
+const jsonLd = buildPersonJsonLd(resolved, canonicalUrl)
+const defaultLang = resolved.blog.defaultLanguage
+
+const contentLangs = await getContentLangs()
+const alternateUrls: Record<string, string> = {}
+for (const l of contentLangs) {
+  const href = l === defaultLang ? canonicalBase || '/' : `${canonicalBase}/${l}`
+  alternateUrls[l] = href
+}
+
+const allPosts: CollectionEntry<'blog'>[] = await getCollection(
+  'blog',
+  (e: CollectionEntry<'blog'>) => !e.data.draft && e.id.startsWith(`${lang}/`),
+)
+const recentCards = allPosts
+  .sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf())
+  .slice(0, 3)
+  .map((post) => ({
+    slug: postSlug(post.id, lang),
+    title: post.data.title,
+    description: post.data.description,
+    publishDate: post.data.publishDate,
+    tags: post.data.tags,
+    readingTime: calculateReadingTime(post.body ?? ''),
+  }))
+
+const blogHref = lang === defaultLang ? '/blog' : `/${lang}/blog`
+---
+
+<BaseLayout
+  title={resolved.seo?.title ?? `${resolved.profile.name}'s Blog`}
+  description={resolved.seo?.description ?? resolved.profile.bio ?? ''}
+  lang={lang}
+  jsonLd={jsonLd}
+  alternateUrls={alternateUrls}
+>
+  <div class="mx-auto max-w-4xl px-4 py-12">
+    <section class="mb-16 flex flex-col items-center text-center">
+      <Avatar src={resolved.profile.avatar} name={resolved.profile.name} size={112} glow={true} class="mb-6" />
+      <h1 class="mb-1 text-3xl font-bold text-white sm:text-4xl">{resolved.profile.name}</h1>
+      <p class="mb-3 text-base text-white/50">@{resolved.profile.username}</p>
+      {resolved.profile.bio && (
+        <p class="mb-6 max-w-md text-base leading-relaxed text-white/70">{resolved.profile.bio}</p>
+      )}
+      {resolved.profile.socials?.length && <SocialIcons socials={resolved.profile.socials} />}
+    </section>
+
+    <section>
+      <div class="mb-6 flex items-center justify-between">
+        <h2 class="text-xl font-semibold text-white/90">{i18n.home.recentPosts}</h2>
+        {recentCards.length > 0 && (
+          <a href={blogHref} class="text-sm text-white/40 transition-colors hover:text-white/70">
+            {i18n.home.viewAll}
+          </a>
+        )}
+      </div>
+
+      {recentCards.length > 0 ? (
+        <div class="flex flex-col gap-4">
+          {recentCards.map((card) => (
+            <PostCard
+              slug={card.slug}
+              title={card.title}
+              description={card.description}
+              publishDate={card.publishDate}
+              tags={card.tags}
+              readingTime={card.readingTime}
+              lang={lang}
+              showReadingTime={resolved.blog.showReadingTime}
+              showTags={resolved.blog.showTags}
+            />
+          ))}
+        </div>
+      ) : (
+        <div class="py-10 text-center">
+          <p class="text-sm text-white/40">{i18n.home.noPosts}</p>
+        </div>
+      )
+      }
+    </section>
+  </div>
+</BaseLayout>

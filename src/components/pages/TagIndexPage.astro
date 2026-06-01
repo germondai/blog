@@ -1,0 +1,70 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import { type CollectionEntry, getCollection } from 'astro:content'
+import TagBadge from '@/components/blog/TagBadge.astro'
+import BaseLayout from '@/components/layout/BaseLayout.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import { getContentLangs } from '@/lib/content'
+import config from '../../../blog.config'
+
+interface Props {
+  lang: string
+}
+
+const { lang } = Astro.props
+const resolved = resolveConfig(config)
+const i18n = t(lang)
+const defaultLang = resolved.blog.defaultLanguage
+const siteTitle = resolved.seo?.title ?? `${resolved.profile.name}'s Blog`
+const canonicalBase = resolved.seo?.canonicalUrl?.replace(/\/$/, '') ?? ''
+
+const contentLangs = await getContentLangs()
+const alternateUrls: Record<string, string> = {}
+for (const l of contentLangs) {
+  alternateUrls[l] = l === defaultLang ? `${canonicalBase}/tag` : `${canonicalBase}/${l}/tag`
+}
+const blogHref = lang === defaultLang ? '/blog' : `/${lang}/blog`
+const tagHref = (tag: string) => (lang === defaultLang ? `/tag/${tag}` : `/${lang}/tag/${tag}`)
+
+const posts = await getCollection(
+  'blog',
+  (e: CollectionEntry<'blog'>) => !e.data.draft && e.id.startsWith(`${lang}/`),
+)
+const tagMap = new Map<string, number>()
+for (const post of posts) {
+  for (const tag of post.data.tags) tagMap.set(tag, (tagMap.get(tag) ?? 0) + 1)
+}
+const tags = [...tagMap.entries()].sort((a, b) => b[1] - a[1])
+---
+
+<BaseLayout title={`${i18n.tags.title} – ${siteTitle}`} description={`${i18n.tags.allTags} – ${siteTitle}`} lang={lang} alternateUrls={alternateUrls}>
+  <div class="mx-auto max-w-3xl px-4 py-12">
+    <header class="mb-10">
+      <a href={blogHref} class="mb-4 inline-block text-sm text-white/40 transition-colors hover:text-white/70">{i18n.tags.backToPosts}</a>
+      <h1 class="text-3xl font-bold text-white">{i18n.tags.title}</h1>
+      {tags.length > 0 && <p class="mt-2 text-white/50">{i18n.tags.tags(tags.length)}</p>}
+    </header>
+
+    {tags.length > 0 ? (
+      <div class="flex flex-wrap gap-3">
+        {tags.map(([tag, count]) => (
+          <a href={tagHref(tag)} class="group flex items-center gap-2.5 rounded-2xl border border-white/[0.07] px-4 py-2.5 transition-all hover:border-white/15 hover:-translate-y-0.5" style="background:rgba(255,255,255,0.04)">
+            <TagBadge tag={tag} />
+            <span class="text-xs tabular-nums text-white/30 transition-colors group-hover:text-white/50">{count}</span>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="flex flex-col items-center gap-4 py-20 text-center">
+        <div class="text-5xl">🏷️</div>
+        <p class="text-lg font-medium text-white/60">{i18n.tags.noTags}</p>
+        <a href={blogHref} class="mt-2 rounded-xl px-4 py-2 text-sm transition-all hover:-translate-y-0.5" style="background:color-mix(in srgb,var(--accent) 15%,transparent);color:color-mix(in srgb,var(--accent) 80%,#fff);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent)">
+          {i18n.tags.viewAllPosts}
+        </a>
+      </div>
+    )}
+  </div>
+</BaseLayout>

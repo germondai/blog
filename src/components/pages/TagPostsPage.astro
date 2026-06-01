@@ -1,0 +1,48 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import type { CollectionEntry } from 'astro:content'
+import PostList from '@/components/blog/PostList.astro'
+import BaseLayout from '@/components/layout/BaseLayout.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import config from '../../../blog.config'
+
+interface Props {
+  tag: string
+  posts: CollectionEntry<'blog'>[]
+  lang: string
+}
+
+const { tag, posts, lang } = Astro.props
+const resolved = resolveConfig(config)
+const i18n = t(lang)
+const defaultLang = resolved.blog.defaultLanguage
+const siteTitle = resolved.seo?.title ?? `${resolved.profile.name}'s Blog`
+const tagIndexHref = lang === defaultLang ? '/tag' : `/${lang}/tag`
+---
+
+<BaseLayout
+  title={`#${tag} – ${siteTitle}`}
+  description={`${i18n.tags.taggedWith(tag)} – ${siteTitle}`}
+  lang={lang}
+>
+  <div class="mx-auto max-w-3xl px-4 py-12">
+    <header class="mb-10">
+      <a href={tagIndexHref} class="mb-4 inline-block text-sm text-white/40 transition-colors hover:text-white/70">
+        {i18n.tags.backToTags}
+      </a>
+      <h1 class="text-3xl font-bold text-white"><span class="text-white/30">#</span>{tag}</h1>
+      <p class="mt-2 text-white/50">{i18n.blog.posts(posts.length)}</p>
+    </header>
+
+    {posts.length > 0 ? (
+      <PostList posts={posts} lang={lang} showReadingTime={resolved.blog.showReadingTime} showTags={resolved.blog.showTags} />
+    ) : (
+      <div class="py-20 text-center">
+        <p class="text-lg font-medium text-white/60">{i18n.blog.noPosts}</p>
+      </div>
+    )}
+  </div>
+</BaseLayout>

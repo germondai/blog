@@ -1,0 +1,129 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import { type CollectionEntry, render } from 'astro:content'
+import Breadcrumbs from '@/components/blog/Breadcrumbs.astro'
+import ContentSurround from '@/components/blog/ContentSurround.astro'
+import TagBadge from '@/components/blog/TagBadge.astro'
+import BlogLayout from '@/components/layout/BlogLayout.astro'
+import GlassCard from '@/components/layout/GlassCard.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import { postSlug } from '@/lib/content'
+import { calculateReadingTime } from '@/lib/reading-time'
+import { buildBlogPostingJsonLd } from '@/lib/seo'
+import { buildToc } from '@/lib/toc'
+import config from '../../../blog.config'
+
+interface Props {
+  post: CollectionEntry<'blog'>
+  prev?: CollectionEntry<'blog'>
+  next?: CollectionEntry<'blog'>
+  lang: string
+}
+
+const { post, prev, next, lang } = Astro.props
+const resolved = resolveConfig(config)
+const i18n = t(lang)
+const defaultLang = resolved.blog.defaultLanguage
+
+const { Content, headings } = await render(post)
+const toc = buildToc(
+  headings.filter((h: { depth: number; slug: string; text: string }) => h.depth <= 3),
+)
+const body = post.body ?? ''
+const readingTime = calculateReadingTime(body)
+
+const canonicalBase = resolved.seo?.canonicalUrl?.replace(/\/$/, '') ?? ''
+const slug = postSlug(post.id, lang)
+const postPath = lang === defaultLang ? `/blog/${slug}` : `/${lang}/blog/${slug}`
+const postUrl = canonicalBase ? `${canonicalBase}${postPath}` : Astro.url.href
+
+const jsonLd = buildBlogPostingJsonLd(
+  {
+    title: post.data.title,
+    description: post.data.description,
+    publishDate: post.data.publishDate,
+    updatedDate: post.data.updatedDate,
+    tags: post.data.tags,
+    coverImage: post.data.coverImage,
+  },
+  resolved,
+  postUrl,
+  lang,
+)
+
+const homeHref = lang === defaultLang ? '/' : `/${lang}`
+const blogHref = lang === defaultLang ? '/blog' : `/${lang}/blog`
+const tagHref = (tag: string) => (lang === defaultLang ? `/tag/${tag}` : `/${lang}/tag/${tag}`)
+
+const formattedDate = new Intl.DateTimeFormat(lang, {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}).format(post.data.publishDate)
+
+const updatedDate = post.data.updatedDate
+  ? new Intl.DateTimeFormat(lang, { year: 'numeric', month: 'long', day: 'numeric' }).format(
+      post.data.updatedDate,
+    )
+  : null
+---
+
+<BlogLayout
+  title={post.data.title}
+  description={post.data.description}
+  lang={lang}
+  publishDate={post.data.publishDate}
+  updatedDate={post.data.updatedDate}
+  tags={post.data.tags}
+  ogImage={post.data.coverImage}
+  jsonLd={jsonLd}
+  toc={toc}
+  shareUrl={postUrl}
+>
+  <Breadcrumbs
+    slot="before"
+    items={[
+      { label: i18n.breadcrumb.home, href: homeHref },
+      { label: i18n.breadcrumb.blog, href: blogHref },
+      { label: post.data.title },
+    ]}
+    baseUrl={canonicalBase}
+  />
+
+  <header slot="header" class="mb-8">
+    {post.data.tags.length > 0 && (
+      <div class="mb-4 flex flex-wrap gap-2">
+        {post.data.tags.map((tag: string) => <TagBadge tag={tag} href={tagHref(tag)} />)}
+      </div>
+    )}
+
+    <h1 class="mb-3 text-3xl font-bold leading-tight text-white sm:text-4xl">
+      {post.data.title}
+    </h1>
+
+    <p class="mb-4 text-base leading-relaxed text-white/55">{post.data.description}</p>
+
+    <div class="flex flex-wrap items-center gap-3 text-sm text-white/35">
+      <time datetime={post.data.publishDate.toISOString()}>{formattedDate}</time>
+      {resolved.blog.showReadingTime && (
+        <><span>·</span><span>{i18n.blog.readingTime(readingTime)}</span></>
+      )}
+      {updatedDate && (
+        <><span>·</span><span>{i18n.blog.updatedOn} {updatedDate}</span></>
+      )}
+    </div>
+
+    <div class="mt-6 border-b" style="border-color:rgba(255,255,255,0.07)"></div>
+  </header>
+
+  <GlassCard tag="div" class="p-6 sm:p-8">
+    <div class="prose prose-invert max-w-none">
+      <Content />
+    </div>
+  </GlassCard>
+
+  <ContentSurround prev={prev} next={next} lang={lang} />
+</BlogLayout>

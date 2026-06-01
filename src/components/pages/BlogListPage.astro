@@ -1,0 +1,69 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import type { CollectionEntry } from 'astro:content'
+import type { Page } from 'astro'
+import Pagination from '@/components/blog/Pagination.astro'
+import PostList from '@/components/blog/PostList.astro'
+import BaseLayout from '@/components/layout/BaseLayout.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import { getContentLangs } from '@/lib/content'
+import config from '../../../blog.config'
+
+interface Props {
+  page: Page<CollectionEntry<'blog'>>
+  lang: string
+}
+
+const { page, lang } = Astro.props
+const resolved = resolveConfig(config)
+const i18n = t(lang)
+const siteTitle = resolved.seo?.title ?? `${resolved.profile.name}'s Blog`
+const pageLabel =
+  page.lastPage > 1 ? ` · ${i18n.pagination.page(page.currentPage, page.lastPage)}` : ''
+const defaultLang = resolved.blog.defaultLanguage
+const canonicalBase = resolved.seo?.canonicalUrl?.replace(/\/$/, '') ?? ''
+
+// Only emit hreflang alternates on page 1
+let alternateUrls: Record<string, string> | undefined
+if (page.currentPage === 1) {
+  alternateUrls = {}
+  const contentLangs = await getContentLangs()
+  for (const l of contentLangs) {
+    alternateUrls[l] = l === defaultLang ? `${canonicalBase}/blog` : `${canonicalBase}/${l}/blog`
+  }
+}
+---
+
+<BaseLayout
+  title={`${i18n.blog.title}${pageLabel} – ${siteTitle}`}
+  description={resolved.seo?.description ?? i18n.blog.subtitle}
+  lang={lang}
+  alternateUrls={alternateUrls}
+>
+  <div class="mx-auto max-w-3xl px-4 py-12">
+    <header class="mb-10">
+      <h1 class="mb-2 text-3xl font-bold text-white">{i18n.blog.title}</h1>
+      {page.total > 0 && (
+        <p class="text-white/50">
+          {i18n.blog.posts(page.total)}{pageLabel}
+        </p>
+      )}
+    </header>
+
+    {
+      page.data.length > 0 ? (
+        <>
+          <PostList posts={page.data} lang={lang} showReadingTime={resolved.blog.showReadingTime} showTags={resolved.blog.showTags} />
+          <Pagination page={page} lang={lang} />
+        </>
+      ) : (
+        <div class="py-24 text-center">
+          <p class="text-lg font-medium text-white/55">{i18n.blog.noPosts}</p>
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>
