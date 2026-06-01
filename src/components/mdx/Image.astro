@@ -1,0 +1,32 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+// Usage in MDX for images with captions:
+//   import Image from '@/components/mdx/Image.astro'
+//   <Image src="https://example.com/photo.jpg" alt="My photo" caption="A nice photo" />
+
+interface Props {
+  src: string
+  alt: string
+  caption?: string
+  width?: number
+  height?: number
+}
+
+const { src, alt, caption, width, height } = Astro.props
+---
+
+<figure class="not-prose my-6">
+  <img
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    loading="lazy"
+    decoding="async"
+    class="mx-auto w-full rounded-xl border border-white/[0.07]"
+    style="max-height:600px;object-fit:contain"
+  />
+  {caption && <figcaption class="mt-2 text-center text-xs text-white/40">{caption}</figcaption>}
+</figure>

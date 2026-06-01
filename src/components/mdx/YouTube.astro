@@ -1,0 +1,100 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+// Usage in MDX:
+//   import YouTube from '@/components/mdx/YouTube.astro'
+//   <YouTube id="dQw4w9WgXcQ" />
+//   <YouTube id="dQw4w9WgXcQ" title="My video" start={30} />
+
+interface Props {
+  id: string
+  title?: string
+  start?: number
+  caption?: string
+}
+
+const { id, title = 'YouTube video', start, caption } = Astro.props
+
+const thumbSrc = `https://img.youtube.com/vi/${id}/maxresdefault.jpg`
+const fallbackSrc = `https://img.youtube.com/vi/${id}/hqdefault.jpg`
+
+const params = new URLSearchParams({
+  autoplay: '1',
+  rel: '0',
+  modestbranding: '1',
+  ...(start ? { start: String(start) } : {}),
+})
+const iframeSrc = `https://www.youtube-nocookie.com/embed/${id}?${params}`
+---
+
+<figure class="not-prose my-6" data-youtube-id={id}>
+  <div
+    class="yt-placeholder relative cursor-pointer overflow-hidden rounded-xl border border-white/[0.07]"
+    style="aspect-ratio:16/9;background:#000"
+    data-iframe-src={iframeSrc}
+    title={`Play: ${title}`}
+    role="button"
+    tabindex="0"
+    aria-label={`Play YouTube video: ${title}`}
+  >
+    <img
+      src={thumbSrc}
+      data-fallback={fallbackSrc}
+      alt={`Thumbnail for: ${title}`}
+      width="1280"
+      height="720"
+      loading="lazy"
+      decoding="async"
+      class="yt-thumb absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+      onerror={`this.src='${fallbackSrc}'`}
+    />
+    <!-- Gradient overlay -->
+    <div class="absolute inset-0" style="background:linear-gradient(to bottom,transparent 40%,rgba(0,0,0,0.5) 100%)"></div>
+    <!-- Play button -->
+    <div class="absolute inset-0 flex items-center justify-center">
+      <div
+        class="yt-play flex h-16 w-16 items-center justify-center rounded-full transition-all duration-200 hover:scale-110"
+        style="background:rgba(220,0,0,0.9);backdrop-filter:blur(4px)"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </div>
+    </div>
+    <!-- Title -->
+    <div class="absolute bottom-0 left-0 right-0 p-4">
+      <p class="text-sm font-medium text-white/90 line-clamp-2 drop-shadow">{title}</p>
+    </div>
+  </div>
+  {caption && <figcaption class="mt-2 text-center text-xs text-white/40">{caption}</figcaption>}
+</figure>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll<HTMLElement>('.yt-placeholder').forEach((placeholder) => {
+      if (placeholder.dataset.initialized) return
+      placeholder.dataset.initialized = 'true'
+
+      const activate = () => {
+        const src = placeholder.dataset.iframeSrc
+        if (!src) return
+
+        const iframe = document.createElement('iframe')
+        iframe.src = src
+        iframe.title = placeholder.title
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+        iframe.allowFullscreen = true
+        iframe.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:none'
+        placeholder.innerHTML = ''
+        placeholder.appendChild(iframe)
+        placeholder.style.cursor = 'default'
+      }
+
+      placeholder.addEventListener('click', activate)
+      placeholder.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate() }
+      })
+    })
+  })
+</script>

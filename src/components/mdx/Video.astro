@@ -1,0 +1,39 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+// Usage in MDX:
+//   import Video from '@/components/mdx/Video.astro'
+//   <Video src="https://example.com/video.mp4" />
+//   <Video src="/local-video.mp4" poster="/poster.jpg" />
+
+interface Props {
+  src: string
+  poster?: string
+  caption?: string
+  autoplay?: boolean
+  loop?: boolean
+  muted?: boolean
+}
+
+const { src, poster, caption, autoplay = false, loop = false, muted = autoplay } = Astro.props
+---
+
+<figure class="not-prose my-6">
+  <div class="video-wrapper">
+    <video
+      src={src}
+      poster={poster}
+      controls
+      autoplay={autoplay}
+      loop={loop}
+      muted={muted}
+      playsinline
+      preload="metadata"
+      class="w-full"
+    >
+      Your browser does not support the video element.
+    </video>
+  </div>
+  {caption && <figcaption class="mt-2 text-center text-xs text-white/40">{caption}</figcaption>}
+</figure>
