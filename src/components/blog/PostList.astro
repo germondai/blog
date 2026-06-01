@@ -1,0 +1,42 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import type { CollectionEntry } from 'astro:content'
+import { postSlug } from '@/lib/content'
+import { calculateReadingTime } from '@/lib/reading-time'
+import PostCard from './PostCard.astro'
+
+interface Props {
+  posts: CollectionEntry<'blog'>[]
+  lang: string
+  showReadingTime?: boolean
+  showTags?: boolean
+}
+
+const { posts, lang, showReadingTime = true, showTags = true } = Astro.props
+---
+
+<div class="flex flex-col gap-4">
+  {
+    posts.map(async (post) => {
+      const body = post.body ?? ''
+      const readingTime = calculateReadingTime(body)
+      const slug = postSlug(post.id, lang)
+      return (
+        <PostCard
+          slug={slug}
+          title={post.data.title}
+          description={post.data.description}
+          publishDate={post.data.publishDate}
+          tags={post.data.tags}
+          readingTime={readingTime}
+          lang={lang}
+          showReadingTime={showReadingTime}
+          showTags={showTags}
+          coverImage={post.data.coverImage}
+        />
+      )
+    })
+  }
+</div>

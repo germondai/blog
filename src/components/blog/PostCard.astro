@@ -1,0 +1,94 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+
+import GlassCard from '@/components/layout/GlassCard.astro'
+import { t } from '@/i18n'
+import { resolveConfig } from '@/lib/config'
+import config from '../../../blog.config'
+import TagBadge from './TagBadge.astro'
+
+interface Props {
+  slug: string
+  title: string
+  description: string
+  publishDate: Date
+  tags?: string[]
+  readingTime?: number
+  lang: string
+  showReadingTime?: boolean
+  showTags?: boolean
+  coverImage?: string
+}
+
+const {
+  slug,
+  title,
+  description,
+  publishDate,
+  tags = [],
+  readingTime,
+  lang,
+  showReadingTime = true,
+  showTags = true,
+  coverImage,
+} = Astro.props
+
+const i18n = t(lang)
+const defaultLang = resolveConfig(config).blog.defaultLanguage
+const href = lang === defaultLang ? `/blog/${slug}` : `/${lang}/blog/${slug}`
+const tagHref = (tag: string) => (lang === defaultLang ? `/tag/${tag}` : `/${lang}/tag/${tag}`)
+
+const formattedDate = new Intl.DateTimeFormat(lang, {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}).format(publishDate)
+---
+
+<GlassCard
+  tag="article"
+  class="group relative overflow-hidden transition-all hover:border-white/20 hover:-translate-y-0.5 hover:shadow-lg"
+>
+  {
+    coverImage && (
+      <div class="relative h-48 overflow-hidden">
+        <img
+          src={coverImage}
+          alt={title}
+          width={800}
+          height={400}
+          loading="lazy"
+          decoding="async"
+          class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      </div>
+    )
+  }
+
+  <div class="p-5">
+    <div class="mb-3 flex flex-wrap items-center gap-2 text-xs text-white/40">
+      <time datetime={publishDate.toISOString()}>{formattedDate}</time>
+      {showReadingTime && readingTime && <span>·</span>}
+      {showReadingTime && readingTime && <span>{i18n.blog.readingTime(readingTime)}</span>}
+    </div>
+
+    <h2 class="mb-2 text-lg font-semibold leading-snug text-white/90 transition-colors group-hover:text-white">
+      <a href={href} class="after:absolute after:inset-0">
+        {title}
+      </a>
+    </h2>
+
+    <p class="mb-4 line-clamp-2 text-sm leading-relaxed text-white/55">{description}</p>
+
+    {
+      showTags && tags.length > 0 && (
+        <div class="flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <TagBadge tag={tag} href={tagHref(tag)} />
+          ))}
+        </div>
+      )
+    }
+  </div>
+</GlassCard>
