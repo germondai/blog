@@ -1,0 +1,776 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+// Dev-only: live preview + config export. Persisted via transition:persist.
+
+import { resolveConfig } from '@/lib/config'
+import { FONT_FAMILY, FONT_NAMES } from '@/lib/font-meta'
+import { THEMES } from '@/lib/themes'
+import type { SocialPlatform } from '@/types/config'
+import config from '../../../blog.config'
+
+const resolved = resolveConfig(config)
+const allThemes = Object.keys(THEMES) as (keyof typeof THEMES)[]
+const currentTheme = resolved.appearance.theme
+const currentFont = resolved.appearance.font ?? 'Inter'
+
+const ALL_PLATFORMS: SocialPlatform[] = [
+  'github',
+  'twitter',
+  'bluesky',
+  'threads',
+  'instagram',
+  'facebook',
+  'reddit',
+  'youtube',
+  'tiktok',
+  'twitch',
+  'spotify',
+  'linkedin',
+  'discord',
+  'telegram',
+  'whatsapp',
+  'patreon',
+  'kofi',
+  'producthunt',
+  'dribbble',
+  'behance',
+  'devto',
+  'hashnode',
+  'medium',
+  'steam',
+  'website',
+  'email',
+]
+---
+
+<!-- Toggle -->
+<button
+  type="button"
+  id="dp-toggle"
+  class="fixed bottom-5 right-5 z-[60] flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/45 transition-all hover:scale-105 hover:border-white/25 hover:text-white/80"
+  style="background:rgba(6,6,12,0.9);backdrop-filter:blur(16px)"
+  aria-label="Toggle dev panel"
+  aria-expanded="false"
+>
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <circle cx="7.5" cy="3" r="1.5" fill="currentColor"/>
+    <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/>
+    <circle cx="7.5" cy="12" r="1.5" fill="currentColor"/>
+  </svg>
+</button>
+
+<!-- Panel -->
+<aside
+  id="dp-panel"
+  class="fixed inset-y-0 right-0 z-[59] hidden w-80 flex-col border-l border-white/[0.07] text-[13px]"
+  style="background:rgba(6,6,12,0.97);backdrop-filter:blur(24px)"
+>
+  <!-- Header -->
+  <div class="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
+    <span class="font-semibold text-white/85">Dev Config</span>
+    <button type="button" id="dp-close" class="text-white/30 transition-colors hover:text-white/60" aria-label="Close">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M1 13L13 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <!-- Body -->
+  <div class="flex-1 overflow-y-auto" id="dp-body">
+
+    <!-- Profile -->
+    <details class="border-b border-white/[0.06]" open>
+      <summary class="dp-summary">Profile
+        <svg class="dp-chevron" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2.5 4l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="space-y-2.5 px-4 pb-4 pt-2">
+        <div><label class="dp-label">Name</label><input class="dp-input" data-field="profile.name" value={resolved.profile.name} /></div>
+        <div><label class="dp-label">Username</label><input class="dp-input" data-field="profile.username" value={resolved.profile.username} /></div>
+        <div><label class="dp-label">Bio</label><textarea class="dp-input resize-none" rows="2" data-field="profile.bio">{resolved.profile.bio ?? ''}</textarea></div>
+        <div><label class="dp-label">Avatar URL</label><input class="dp-input" data-field="profile.avatar" value={resolved.profile.avatar ?? ''} /></div>
+      </div>
+    </details>
+
+    <!-- Socials -->
+    <details class="border-b border-white/[0.06]">
+      <summary class="dp-summary">Socials
+        <svg class="dp-chevron" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2.5 4l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="px-4 pb-4 pt-2">
+        <div class="space-y-1.5" id="dp-socials-list"></div>
+        <button type="button" id="dp-add-social"
+          class="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-white/10 py-2 text-xs text-white/30 transition-colors hover:border-white/25 hover:text-white/55">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M5.5 1v9M1 5.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Add social
+        </button>
+      </div>
+    </details>
+
+    <!-- Appearance -->
+    <details class="border-b border-white/[0.06]" open>
+      <summary class="dp-summary">Appearance
+        <svg class="dp-chevron" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2.5 4l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="space-y-3 px-4 pb-4 pt-2">
+        <!-- Themes -->
+        <div>
+          <p class="dp-label mb-1.5">Theme</p>
+          <div class="flex flex-wrap gap-1.5">
+            {allThemes.map((t) => (
+              <button
+                type="button"
+                class="dp-theme-btn flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs transition-all"
+                data-theme={t}
+                data-accent={THEMES[t].accent}
+                data-from={THEMES[t].from}
+                data-via={THEMES[t].via}
+                data-to={THEMES[t].to}
+                data-beam={THEMES[t].beam}
+                data-particle={THEMES[t].particle}
+                style={t === currentTheme
+                  ? `background:color-mix(in srgb,${THEMES[t].accent} 18%,transparent);border-color:color-mix(in srgb,${THEMES[t].accent} 30%,transparent);color:#fff`
+                  : 'background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)'}
+              >
+                <span class="h-2 w-2 shrink-0 rounded-full" style={`background:${THEMES[t].accent}`}/>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <!-- Font -->
+        <div>
+          <p class="dp-label mb-1.5">Font</p>
+          <div class="flex flex-wrap gap-1.5" id="dp-fonts">
+            {FONT_NAMES.map((f) => (
+              <button
+                type="button"
+                class="dp-font-btn rounded-lg border px-2 py-1 text-xs transition-all"
+                data-font={f}
+                data-family={FONT_FAMILY[f]}
+                style={f === currentFont
+                  ? 'background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:#fff'
+                  : 'background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)'}
+              >
+                {FONT_FAMILY[f]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <!-- Accent + Glass -->
+        <div>
+          <label class="dp-label">Accent color override</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input type="color" id="dp-accent-picker" class="h-8 w-8 shrink-0 cursor-pointer rounded-lg border border-white/10 bg-transparent"
+              value={resolved.appearance.accentColor ?? THEMES[currentTheme].accent} />
+            <input type="text" id="dp-accent-text" class="dp-input" placeholder="leave empty = theme default"
+              value={resolved.appearance.accentColor ?? ''} />
+          </div>
+        </div>
+        <div>
+          <label class="dp-label">Glass opacity: <span id="dp-glass-val">{resolved.appearance.glassOpacity ?? 0.08}</span></label>
+          <input type="range" min="0" max="0.3" step="0.01" id="dp-glass"
+            class="mt-1 w-full" style="accent-color:var(--accent)"
+            value={String(resolved.appearance.glassOpacity ?? 0.08)} />
+        </div>
+        <div>
+          <label class="dp-label">Blur: <span id="dp-blur-val">{resolved.appearance.blur ?? 20}px</span></label>
+          <input type="range" min="0" max="40" step="1" id="dp-blur"
+            class="mt-1 w-full" style="accent-color:var(--accent)"
+            value={String(resolved.appearance.blur ?? 20)} />
+        </div>
+      </div>
+    </details>
+
+    <!-- Effects -->
+    <details class="border-b border-white/[0.06]">
+      <summary class="dp-summary">Effects
+        <svg class="dp-chevron" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2.5 4l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="space-y-2.5 px-4 pb-4 pt-2">
+        {[
+          { id: 'beams', label: 'Beams', selector: '.beams-layer', on: resolved.effects.beams },
+          { id: 'particles', label: 'Particles', selector: '.particles-layer', on: resolved.effects.particles },
+          { id: 'noiseTexture', label: 'Noise texture', selector: '.noise-bg', on: resolved.effects.noiseTexture },
+          { id: 'lensFlares', label: 'Lens flares', selector: '#flare-layer', on: resolved.effects.lensFlares },
+        ].map(({ id, label, selector, on }) => (
+          <div class="flex items-center justify-between">
+            <span class="text-white/50">{label}</span>
+            <button
+              type="button"
+              class="dp-effect-toggle relative h-5 w-9 rounded-full transition-colors"
+              {...{ 'data-effect': id, 'data-selector': selector }}
+              aria-pressed={on ? 'true' : 'false'}
+              style={on
+                ? 'background:color-mix(in srgb,var(--accent) 70%,transparent)'
+                : 'background:rgba(255,255,255,0.1)'}
+            >
+              <span class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={on ? 'left:calc(100% - 1.1rem)' : 'left:0.125rem'} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </details>
+
+    <!-- Blog -->
+    <details class="border-b border-white/[0.06]">
+      <summary class="dp-summary">Blog settings
+        <svg class="dp-chevron" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2.5 4l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="space-y-2.5 px-4 pb-4 pt-2">
+        <div>
+          <label class="dp-label">Posts per page</label>
+          <input type="number" min="1" max="50" class="dp-input" data-field="blog.postsPerPage" value={String(resolved.blog.postsPerPage)} />
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-white/50">Show reading time</span>
+          <input type="checkbox" class="dp-checkbox" data-field="blog.showReadingTime" checked={resolved.blog.showReadingTime} />
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-white/50">Show tags</span>
+          <input type="checkbox" class="dp-checkbox" data-field="blog.showTags" checked={resolved.blog.showTags} />
+        </div>
+      </div>
+    </details>
+
+    <!-- SEO -->
+    <details class="border-b border-white/[0.06]">
+      <summary class="dp-summary">SEO
+        <svg class="dp-chevron" width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2.5 4l3 3 3-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </summary>
+      <div class="space-y-2.5 px-4 pb-4 pt-2">
+        <div><label class="dp-label">Title</label><input class="dp-input" data-field="seo.title" value={resolved.seo?.title ?? ''} /></div>
+        <div><label class="dp-label">Description</label><textarea class="dp-input resize-none" rows="2" data-field="seo.description">{resolved.seo?.description ?? ''}</textarea></div>
+        <div><label class="dp-label">Twitter handle</label><input class="dp-input" data-field="seo.twitterHandle" value={resolved.seo?.twitterHandle ?? ''} /></div>
+        <div><label class="dp-label">Canonical URL</label><input class="dp-input" data-field="seo.canonicalUrl" value={resolved.seo?.canonicalUrl ?? ''} /></div>
+        <div><label class="dp-label">Main site URL</label><input class="dp-input" data-field="seo.mainSiteUrl" value={resolved.seo?.mainSiteUrl ?? ''} /></div>
+      </div>
+    </details>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="shrink-0 border-t border-white/[0.07] p-4">
+    <button
+      type="button"
+      id="dp-copy"
+      class="flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all duration-200"
+      style="background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.14);color:rgba(255,255,255,0.8)"
+    >
+      <svg id="dp-copy-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M3.5 9.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="1.3"/>
+      </svg>
+      <span id="dp-copy-text">Copy blog.config.ts</span>
+    </button>
+  </div>
+</aside>
+
+<style>
+  .dp-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+    transition: color 0.15s, background 0.15s;
+  }
+  .dp-summary:hover {
+    color: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.02);
+  }
+  details[open] .dp-chevron { transform: rotate(180deg); }
+  .dp-chevron { transition: transform 0.15s; flex-shrink: 0; }
+
+  .dp-label {
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.35);
+    margin-bottom: 0.25rem;
+  }
+  .dp-input {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.8125rem;
+    color: #fff;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+  .dp-input:focus {
+    border-color: rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08);
+  }
+  .dp-checkbox {
+    accent-color: var(--accent);
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+  }
+</style>
+
+<!-- Pass initial config from server to client via define:vars (Astro best practice) -->
+<script define:vars={{
+  dpConfig: {
+    profile: { name: resolved.profile.name, username: resolved.profile.username, bio: resolved.profile.bio ?? '', avatar: resolved.profile.avatar ?? '' },
+    socials: resolved.profile.socials ?? [],
+    theme: currentTheme,
+    font: currentFont,
+    accentOverride: resolved.appearance.accentColor ?? '',
+    glassOpacity: resolved.appearance.glassOpacity ?? 0.08,
+    blur: resolved.appearance.blur ?? 20,
+    effects: { beams: resolved.effects.beams, particles: resolved.effects.particles, lensFlares: resolved.effects.lensFlares, noiseTexture: resolved.effects.noiseTexture },
+    blog: { postsPerPage: resolved.blog.postsPerPage, showReadingTime: resolved.blog.showReadingTime, showTags: resolved.blog.showTags },
+    seo: { title: resolved.seo?.title ?? '', description: resolved.seo?.description ?? '', twitterHandle: resolved.seo?.twitterHandle ?? '', canonicalUrl: resolved.seo?.canonicalUrl ?? '', mainSiteUrl: resolved.seo?.mainSiteUrl ?? '' },
+    platforms: ALL_PLATFORMS,
+  }
+}}>
+  // Expose to module script (define:vars scripts are inline, can't use imports)
+  window.__dpConfig = dpConfig
+</script>
+
+<script>
+  // Type declaration for define:vars bridge (window.__dpConfig set by inline script above)
+  declare global {
+    interface Window {
+      __dpConfig: {
+        profile: { name: string; username: string; bio: string; avatar: string }
+        socials: Array<{ platform: string; url: string }>
+        theme: string; font: string; accentOverride: string
+        glassOpacity: number; blur: number
+        effects: { beams: boolean; particles: boolean; lensFlares: boolean; noiseTexture: boolean }
+        blog: { postsPerPage: number; showReadingTime: boolean; showTags: boolean }
+        seo: { title: string; description: string; twitterHandle: string; canonicalUrl: string; mainSiteUrl: string }
+        platforms: string[]
+      }
+    }
+  }
+
+      const cssVarStore: Record<string, string> = {}
+
+  const reapplyCssVars = () => {
+    for (const [k, v] of Object.entries(cssVarStore)) {
+      setCssVar(k, v)
+    }
+  }
+
+  const setCssVar = (key: string, value: string) => {
+    cssVarStore[key] = value
+    document.documentElement.style.setProperty(key, value)
+  }
+
+  // Re-apply on every navigation before new content is visible
+  document.addEventListener('astro:after-swap', reapplyCssVars)
+
+  let devInit = false
+
+  document.addEventListener('astro:page-load', () => {
+    if (devInit) return
+    devInit = true
+    reapplyCssVars()
+
+    const toggle = document.getElementById('dp-toggle')
+    const panel = document.getElementById('dp-panel')
+    const close = document.getElementById('dp-close')
+    const copyBtn = document.getElementById('dp-copy')
+
+    const openPanel = () => {
+      panel?.classList.remove('hidden')
+      panel?.classList.add('flex')
+      toggle?.setAttribute('aria-expanded', 'true')
+    }
+    const closePanel = () => {
+      panel?.classList.add('hidden')
+      panel?.classList.remove('flex')
+      toggle?.setAttribute('aria-expanded', 'false')
+    }
+
+    toggle?.addEventListener('click', () =>
+      panel?.classList.contains('hidden') ? openPanel() : closePanel(),
+    )
+    close?.addEventListener('click', closePanel)
+
+    const cfg = (window as unknown as Record<string, unknown>).__dpConfig as typeof window.__dpConfig
+    const state: Record<string, unknown> = {
+      'profile.name': cfg.profile.name,
+      'profile.username': cfg.profile.username,
+      'profile.bio': cfg.profile.bio,
+      'profile.avatar': cfg.profile.avatar,
+      theme: cfg.theme,
+      font: cfg.font,
+      accentOverride: cfg.accentOverride,
+      glassOpacity: cfg.glassOpacity,
+      blur: cfg.blur,
+      effects: { ...cfg.effects },
+      socials: cfg.socials.map((s: { platform: string; url: string }) => ({ ...s })),
+      'blog.postsPerPage': cfg.blog.postsPerPage,
+      'blog.showReadingTime': cfg.blog.showReadingTime,
+      'blog.showTags': cfg.blog.showTags,
+      'seo.title': cfg.seo.title,
+      'seo.description': cfg.seo.description,
+      'seo.twitterHandle': cfg.seo.twitterHandle,
+      'seo.canonicalUrl': cfg.seo.canonicalUrl,
+      'seo.mainSiteUrl': cfg.seo.mainSiteUrl,
+    }
+
+    // Sync input values to match state (since DevPanel is persisted, inputs retain old values)
+    const setInputVal = (sel: string, val: unknown) => {
+      const el = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(sel)
+      if (el) el.value = String(val ?? '')
+    }
+    setInputVal('[data-field="profile.name"]', state['profile.name'])
+    setInputVal('[data-field="profile.username"]', state['profile.username'])
+    setInputVal('[data-field="profile.bio"]', state['profile.bio'])
+    setInputVal('[data-field="profile.avatar"]', state['profile.avatar'])
+    const glassEl = document.getElementById('dp-glass') as HTMLInputElement | null
+    const blurEl = document.getElementById('dp-blur') as HTMLInputElement | null
+    if (glassEl) { glassEl.value = String(state.glassOpacity); const v = document.getElementById('dp-glass-val'); if (v) v.textContent = String(state.glassOpacity) }
+    if (blurEl) { blurEl.value = String(state.blur); const v = document.getElementById('dp-blur-val'); if (v) v.textContent = `${state.blur}px` }
+    setInputVal('[data-field="seo.title"]', state['seo.title'])
+    setInputVal('[data-field="seo.description"]', state['seo.description'])
+    setInputVal('[data-field="seo.twitterHandle"]', state['seo.twitterHandle'])
+    setInputVal('[data-field="seo.canonicalUrl"]', state['seo.canonicalUrl'])
+    setInputVal('[data-field="seo.mainSiteUrl"]', state['seo.mainSiteUrl'])
+
+    // Theme buttons
+    document.querySelectorAll<HTMLElement>('.dp-theme-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.theme = btn.dataset.theme ?? ''
+        setCssVar('--bg-from', btn.dataset.from ?? '')
+        setCssVar('--bg-via', btn.dataset.via ?? '')
+        setCssVar('--bg-to', btn.dataset.to ?? '')
+        if (!state.accentOverride) {
+          setCssVar('--accent', btn.dataset.accent ?? '')
+          setCssVar('--beam-color', btn.dataset.beam ?? '')
+          setCssVar('--particle-color', btn.dataset.particle ?? '')
+        }
+        document.querySelectorAll<HTMLElement>('.dp-theme-btn').forEach((b) => {
+          const active = b === btn
+          b.style.background = active ? `color-mix(in srgb,${b.dataset.accent} 18%,transparent)` : 'rgba(255,255,255,0.04)'
+          b.style.borderColor = active ? `color-mix(in srgb,${b.dataset.accent} 30%,transparent)` : 'rgba(255,255,255,0.08)'
+          b.style.color = active ? '#fff' : 'rgba(255,255,255,0.5)'
+        })
+      })
+    })
+
+    // Font buttons
+    const loadedFonts = new Set<string>()
+    document.querySelectorAll<HTMLElement>('.dp-font-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const family = btn.dataset.family ?? ''
+        state.font = btn.dataset.font ?? ''
+        setCssVar('--font-base', `'${family}', ui-sans-serif, system-ui, sans-serif`)
+        if (!loadedFonts.has(family)) {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, '+')}:wght@400;500;600;700&display=swap`
+          document.head.appendChild(link)
+          loadedFonts.add(family)
+        }
+        document.querySelectorAll<HTMLElement>('.dp-font-btn').forEach((b) => {
+          const active = b === btn
+          b.style.background = active ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.04)'
+          b.style.borderColor = active ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)'
+          b.style.color = active ? '#fff' : 'rgba(255,255,255,0.5)'
+        })
+      })
+    })
+
+    // Accent color
+    const picker = document.getElementById('dp-accent-picker') as HTMLInputElement | null
+    const textInput = document.getElementById('dp-accent-text') as HTMLInputElement | null
+
+    const applyAccent = (val: string) => {
+      state.accentOverride = val
+      if (val) {
+        setCssVar('--accent', val)
+        setCssVar('--beam-color', val)
+        setCssVar('--particle-color', val)
+        if (picker) picker.value = val
+        if (textInput) textInput.value = val
+      }
+    }
+    picker?.addEventListener('input', (e) => applyAccent((e.target as HTMLInputElement).value))
+    textInput?.addEventListener('input', (e) => {
+      const v = (e.target as HTMLInputElement).value
+      if (!v) { state.accentOverride = ''; return }
+      if (/^#[0-9a-f]{6}$/i.test(v)) applyAccent(v)
+    })
+
+    // Sliders
+    const glassSlider = document.getElementById('dp-glass') as HTMLInputElement | null
+    const glassVal = document.getElementById('dp-glass-val')
+    glassSlider?.addEventListener('input', () => {
+      const v = Number(glassSlider.value)
+      state.glassOpacity = v
+      if (glassVal) glassVal.textContent = String(v)
+      document.querySelectorAll<HTMLElement>('[style*="backdrop-filter"]').forEach((el) => {
+        if (el.id === 'dp-panel' || el.closest('#dp-panel') || el.closest('header')) return
+        el.style.background = `rgba(255,255,255,${v})`
+      })
+    })
+
+    const blurSlider = document.getElementById('dp-blur') as HTMLInputElement | null
+    const blurVal = document.getElementById('dp-blur-val')
+    blurSlider?.addEventListener('input', () => {
+      const v = Number(blurSlider.value)
+      state.blur = v
+      if (blurVal) blurVal.textContent = `${v}px`
+    })
+
+    // Text/number fields
+    document.querySelectorAll<HTMLElement>('[data-field]').forEach((el) => {
+      const field = el.dataset.field ?? ''
+      const input = el as HTMLInputElement | HTMLTextAreaElement
+      input.addEventListener('input', () => { state[field] = input.value })
+    })
+
+    // Checkboxes
+    document.querySelectorAll<HTMLInputElement>('.dp-checkbox').forEach((el) => {
+      const field = el.dataset.field ?? ''
+      el.addEventListener('change', () => { state[field] = el.checked })
+    })
+
+    // Effects toggles
+    document.querySelectorAll<HTMLElement>('.dp-effect-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sel = btn.dataset.selector
+        const key = btn.dataset.effect as keyof typeof state.effects
+        if (!sel) return
+        const el = document.querySelector<HTMLElement>(sel)
+
+        const isOn = btn.getAttribute('aria-pressed') === 'true'
+        const nowOn = !isOn
+        btn.setAttribute('aria-pressed', String(nowOn))
+        if (el) el.style.display = nowOn ? '' : 'none'
+        btn.style.background = nowOn ? 'color-mix(in srgb,var(--accent) 70%,transparent)' : 'rgba(255,255,255,0.1)'
+        const knob = btn.querySelector('span') as HTMLElement | null
+        if (knob) knob.style.left = nowOn ? 'calc(100% - 1.1rem)' : '0.125rem'
+        ;(state.effects as Record<string, boolean>)[key] = nowOn
+      })
+    })
+
+    const socialsList = document.getElementById('dp-socials-list')
+    const addSocialBtn = document.getElementById('dp-add-social')
+    const PLATFORMS = cfg.platforms as string[]
+
+    const buildSelect = (selected: string): HTMLSelectElement => {
+      const sel = document.createElement('select')
+      sel.className = 'dp-input w-28 shrink-0'
+      PLATFORMS.forEach((p) => {
+        const opt = document.createElement('option')
+        opt.value = p
+        opt.textContent = p
+        opt.selected = p === selected
+        sel.appendChild(opt)
+      })
+      return sel
+    }
+
+    // Social icon live preview
+    const SOCIAL_ICON_SLUGS: Record<string, string | null> = {
+      github: 'github', twitter: 'twitter', bluesky: 'bluesky',
+      instagram: 'instagram', facebook: 'facebook', youtube: 'youtube', tiktok: 'tiktok',
+      twitch: 'twitch', linkedin: 'linkedin', discord: 'discord', telegram: 'telegram',
+      reddit: 'reddit', spotify: 'spotify', dribbble: 'dribbble', behance: 'behance',
+      medium: 'medium', steam: 'steam',
+      threads: null, whatsapp: null, patreon: null, kofi: null, producthunt: null,
+      devto: null, hashnode: null, website: null, email: null,
+    }
+    const SOCIAL_SVG_ICONS: Record<string, string> = {
+      threads: '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/>',
+      whatsapp: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+      patreon: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+      kofi: '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>',
+      producthunt: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+      devto: '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
+      hashnode: '<path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>',
+      website: '<circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/>',
+      email: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+    }
+    const SOCIAL_LABELS: Record<string, string> = {
+      github: 'GitHub', twitter: 'Twitter', bluesky: 'Bluesky', instagram: 'Instagram',
+      youtube: 'YouTube', linkedin: 'LinkedIn', discord: 'Discord', twitch: 'Twitch',
+      tiktok: 'TikTok', website: 'Website', email: 'Email', reddit: 'Reddit',
+    }
+
+    const renderProfileSocials = (socials: Array<{platform: string; url: string}>) => {
+      const container = document.getElementById('profile-socials-container')
+      if (!container) return
+      container.innerHTML = socials
+        .filter((s) => s.url)
+        .map(({ platform, url }) => {
+          const slug = SOCIAL_ICON_SLUGS[platform] ?? null
+          const label = SOCIAL_LABELS[platform] ?? platform
+          const isEmail = url.startsWith('mailto:')
+          const linkAttrs = `href="${url}" title="${label}" aria-label="${label}"
+            class="social-icon-link flex h-9 w-9 items-center justify-center rounded-xl text-white transition-all hover:scale-110"
+            style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);opacity:0.48"
+            ${!isEmail ? 'target="_blank" rel="noopener noreferrer"' : ''}`
+          const svgPaths = SOCIAL_SVG_ICONS[platform] ?? null
+          const icon = slug
+            ? `<img src="https://icons.germondai.com/icons?i=${slug}:mono:fff:full:transparent" alt="${label}" width="18" height="18" decoding="async">`
+            : svgPaths
+              ? `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${svgPaths}</svg>`
+              : `<span style="font-size:10px;font-weight:600">${label.slice(0, 2).toUpperCase()}</span>`
+          return `<a ${linkAttrs}>${icon}</a>`
+        })
+        .join('')
+    }
+
+    const addSocialRow = (platform = 'website', url = '') => {
+      if (!socialsList) return
+
+      const row = document.createElement('div')
+      row.className = 'flex items-center gap-1.5 rounded-lg border border-white/8 px-2 py-1.5'
+      row.style.background = 'rgba(255,255,255,0.03)'
+
+      // visual only
+      const grip = document.createElement('span')
+      grip.className = 'shrink-0 cursor-grab text-white/15'
+      grip.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><circle cx="4" cy="2" r="1"/><circle cx="8" cy="2" r="1"/><circle cx="4" cy="6" r="1"/><circle cx="8" cy="6" r="1"/><circle cx="4" cy="10" r="1"/><circle cx="8" cy="10" r="1"/></svg>'
+
+      const sel = buildSelect(platform)
+      sel.className = 'dp-input w-24 shrink-0 text-xs'
+
+      const inp = document.createElement('input')
+      inp.className = 'dp-input min-w-0 flex-1 text-xs'
+      inp.placeholder = 'https://'
+      inp.value = url
+      inp.type = 'url'
+
+      const rmBtn = document.createElement('button')
+      rmBtn.type = 'button'
+      rmBtn.className = 'shrink-0 text-white/20 transition-colors hover:text-red-400'
+      rmBtn.setAttribute('aria-label', 'Remove')
+      rmBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 1l9 9M1 10L10 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>'
+
+      row.appendChild(grip)
+      row.appendChild(sel)
+      row.appendChild(inp)
+      row.appendChild(rmBtn)
+
+      const sync = () => {
+        ;(state.socials as Array<{platform: string; url: string}>) = Array.from(
+          socialsList.children,
+        ).map((r) => ({
+          platform: (r.querySelector('select') as HTMLSelectElement)?.value ?? 'website',
+          url: (r.querySelector('input') as HTMLInputElement)?.value ?? '',
+        }))
+        renderProfileSocials(state.socials as Array<{platform: string; url: string}>)
+      }
+
+      sel.addEventListener('change', sync)
+      inp.addEventListener('input', sync)
+      rmBtn.addEventListener('click', () => { row.remove(); sync() })
+
+      socialsList.appendChild(row)
+      sync()
+    }
+
+    if (socialsList) socialsList.innerHTML = ''
+    ;(state.socials as Array<{platform: string; url: string}>).forEach((s) =>
+      addSocialRow(s.platform, s.url),
+    )
+    renderProfileSocials(state.socials as Array<{platform: string; url: string}>)
+
+    addSocialBtn?.addEventListener('click', () => addSocialRow())
+
+    // Copy to clipboard
+    const serialize = (): string => {
+      const s = state
+      const seoEntries = ['seo.title', 'seo.description', 'seo.twitterHandle', 'seo.canonicalUrl', 'seo.mainSiteUrl']
+      const hasSeo = seoEntries.some((k) => s[k])
+
+      const indent = (n: number) => ' '.repeat(n * 2)
+      const str = (v: unknown) => (v ? `'${String(v).replace(/'/g, "\\'")}'` : undefined)
+
+      const lines: string[] = [
+        `// SPDX-License-Identifier: AGPL-3.0-or-later`,
+        `// Copyright (C) 2025 germondai - https://github.com/germondai`,
+        ``,
+        `import type { BlogConfig } from './src/types/config'`,
+        ``,
+        `const config: BlogConfig = {`,
+        `${indent(1)}profile: {`,
+        `${indent(2)}name: '${String(s['profile.name']).replace(/'/g, "\\'")}',`,
+        `${indent(2)}username: '${String(s['profile.username']).replace(/'/g, "\\'")}',`,
+        ...(s['profile.bio'] ? [`${indent(2)}bio: ${str(s['profile.bio'])},`] : []),
+        ...(s['profile.avatar'] ? [`${indent(2)}avatar: ${str(s['profile.avatar'])},`] : []),
+        ...((s.socials as Array<{platform: string; url: string}>).length ? [
+          `${indent(2)}socials: [`,
+          ...(s.socials as Array<{platform: string; url: string}>).map(
+            (sc) => `${indent(3)}{ platform: '${sc.platform}', url: '${sc.url.replace(/'/g, "\\'")}' },`,
+          ),
+          `${indent(2)}],`,
+        ] : []),
+        `${indent(1)}},`,
+        `${indent(1)}appearance: {`,
+        `${indent(2)}theme: '${s.theme}',`,
+        `${indent(2)}font: '${s.font}',`,
+        ...(s.accentOverride ? [`${indent(2)}accentColor: '${s.accentOverride}',`] : []),
+        `${indent(2)}glassOpacity: ${s.glassOpacity},`,
+        `${indent(2)}blur: ${s.blur},`,
+        `${indent(1)}},`,
+        `${indent(1)}effects: {`,
+        `${indent(2)}beams: ${(s.effects as Record<string,boolean>).beams},`,
+        `${indent(2)}particles: ${(s.effects as Record<string,boolean>).particles},`,
+        `${indent(2)}lensFlares: ${(s.effects as Record<string,boolean>).lensFlares},`,
+        `${indent(2)}noiseTexture: ${(s.effects as Record<string,boolean>).noiseTexture},`,
+        `${indent(1)}},`,
+        `${indent(1)}blog: {`,
+        `${indent(2)}postsPerPage: ${s['blog.postsPerPage']},`,
+        `${indent(2)}showReadingTime: ${s['blog.showReadingTime']},`,
+        `${indent(2)}showTags: ${s['blog.showTags']},`,
+        `${indent(1)}},`,
+        ...(hasSeo ? [
+          `${indent(1)}seo: {`,
+          ...(s['seo.title'] ? [`${indent(2)}title: ${str(s['seo.title'])},`] : []),
+          ...(s['seo.description'] ? [`${indent(2)}description: ${str(s['seo.description'])},`] : []),
+          ...(s['seo.twitterHandle'] ? [`${indent(2)}twitterHandle: ${str(s['seo.twitterHandle'])},`] : []),
+          ...(s['seo.canonicalUrl'] ? [`${indent(2)}canonicalUrl: ${str(s['seo.canonicalUrl'])},`] : []),
+          ...(s['seo.mainSiteUrl'] ? [`${indent(2)}mainSiteUrl: ${str(s['seo.mainSiteUrl'])},`] : []),
+          `${indent(1)}},`,
+        ] : []),
+        `}`,
+        ``,
+        `export default config`,
+      ]
+      return lines.join('\n')
+    }
+
+    const copyIcon = document.getElementById('dp-copy-icon')
+    const copyText = document.getElementById('dp-copy-text')
+
+    copyBtn?.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(serialize())
+        if (copyIcon) copyIcon.innerHTML = '<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        if (copyText) copyText.textContent = 'Copied!'
+        if (copyBtn) {
+          copyBtn.style.background = 'rgba(34,197,94,0.15)'
+          copyBtn.style.borderColor = 'rgba(34,197,94,0.3)'
+          copyBtn.style.color = 'rgb(134,239,172)'
+        }
+        setTimeout(() => {
+          if (copyIcon) copyIcon.innerHTML = '<rect x="4.5" y="4.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/><path d="M3.5 9.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v1" stroke="currentColor" stroke-width="1.3"/>'
+          if (copyText) copyText.textContent = 'Copy blog.config.ts'
+          if (copyBtn) {
+            copyBtn.style.background = ''
+            copyBtn.style.borderColor = ''
+            copyBtn.style.color = ''
+          }
+        }, 2200)
+      } catch {
+        if (copyText) copyText.textContent = 'Copy failed, try again'
+      }
+    })
+  })
+</script>
