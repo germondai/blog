@@ -1,0 +1,11 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+import TagIndexPage from '@/components/pages/TagIndexPage.astro'
+import { tagIndexLocalizedPaths } from '@/lib/staticPaths'
+
+export const getStaticPaths = tagIndexLocalizedPaths
+
+const { lang } = Astro.params
+---
+<TagIndexPage lang={lang} />

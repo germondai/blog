@@ -1,0 +1,11 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+import HomePage from '@/components/pages/HomePage.astro'
+import { homeLocalizedPaths } from '@/lib/staticPaths'
+
+export const getStaticPaths = homeLocalizedPaths
+
+const { lang } = Astro.params
+---
+<HomePage lang={lang} />

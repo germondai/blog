@@ -1,0 +1,18 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 germondai - https://github.com/germondai
+import type { CollectionEntry } from 'astro:content'
+import BlogPostPage from '@/components/pages/BlogPostPage.astro'
+import { blogPostLocalizedPaths } from '@/lib/staticPaths'
+
+export const getStaticPaths = blogPostLocalizedPaths
+
+interface Props {
+  post: CollectionEntry<'blog'>
+  prev?: CollectionEntry<'blog'>
+  next?: CollectionEntry<'blog'>
+}
+const { post, prev, next } = Astro.props
+const { lang = 'en' } = Astro.params
+---
+<BlogPostPage post={post} prev={prev} next={next} lang={lang} />
