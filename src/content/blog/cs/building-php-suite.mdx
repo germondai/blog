@@ -1,0 +1,55 @@
+---
+title: 'Moje PHP vývojářská sada: Framework, API a startovací šablony'
+description: 'Tři PHP repozitáře, které jsem postavil, abych přestal opakovat stejné nastavení pro každý nový projekt. Kompletní full-stack MVC framework, samostatná šablona REST API a odlehčený starter bez frameworku.'
+publishDate: 2023-10-14
+tags: ['php', 'open-source', 'api', 'backend']
+---
+
+Každý PHP projekt začínal stejným způsobem. Nastavit routing. Zapojit autentizaci. Připojit databázi. Nakonfigurovat prostředí. Napsat stejný boilerplate, který každý jiný projekt potřeboval, než mohl dělat cokoliv zajímavého.
+
+To mě unavilo. Tyto tři repozitáře jsou moje odpověď.
+
+## php-framework: Full-Stack MVC
+
+[php-framework](https://github.com/germondai/php-framework) je kompletní full-stack starter, který zvládá frontend i backend z jednoho projektu. Páruje PHP MVC backend s Vite-bundlovaným frontendem, což znamená, že v průběhu vývoje dostaneš hot module replacement a optimalizovaný build pro produkci.
+
+Na backendu: router, controllery, Doctrine ORM pro databázovou abstrakci a JWT-based autentizace zapečená přímo. Modelová vrstva zpracovává uživatelské sessions a správu médií včetně nahrávání, optimalizace, změny velikosti a konverze formátu.
+
+Na frontendu: [Blade](https://laravel.com/docs/blade) šablonování s HMR podporou, TypeScript, SCSS a TailwindCSS. Celý frontendový pipeline běží přes Vite, což znamená, že vývojářský zážitek je rychlý a produkční výstup je optimalizovaný.
+
+Struktura projektu je:
+
+```
+app/        controllery, entity, modely, pohledy
+config/     konfigurace aplikace
+migrations/ Doctrine databázové migrace
+public/     webový root, dist assets
+src/        zdrojové assets a utility
+```
+
+Instaluj s Composerem a pnpm, nakonfiguruj `.env` a jsi v provozu.
+
+## php-api: Samostatné REST API
+
+[php-api](https://github.com/germondai/php-api) zcela odstraní frontend a soustředí se na budování čistého API. Stejné Doctrine ORM, JWT autentizace a schopnosti správy médií jsou tam, ale struktura je optimalizována pro použití jen na backendu: napájení samostatného frontendu, mobilní aplikace nebo jiné služby.
+
+Dodává se s předpřipravenou entitou User a entitou Media propojenou přes relaci, což ti dává skutečný výchozí bod místo prázdného projektu. Nette Database je zahrnuta pro případ, kdy chceš psát dotazy přímo místo procházení přes ORM.
+
+## php-starter: Minimalistický Starter bez Frameworku
+
+[php-starter](https://github.com/germondai/php-starter) je nejmenší ze tří. Žádné MVC, žádné ORM, žádné těžké abstrakce. Jen rozumná struktura projektu s bezpečností routingu, JWT pomocníkem, Doctrine a Nette Database dostupnými pokud je potřebuješ, a TailwindCSS build pipeline.
+
+Je to správná volba, když chceš psát PHP bez přijetí názorů frameworku, ale také nechceš ručně nastavovat zabezpečení souborů a načítání prostředí pokaždé znovu.
+
+## Co sdílejí
+
+Všechny tři používají:
+- **Doctrine** pro ORM a databázové migrace
+- **JWT** pro autentizaci
+- **Nette Database** pro přímý přístup k dotazům
+- **`.env` konfigurace** pro přihlašovací údaje a nastavení
+- **MIT licence**
+
+Myšlenka byla progrese. php-starter pro malé projekty. php-api pro backendové služby. php-framework pro kompletní aplikace, kde chceš frontend zabalený ve stejném repozitáři.
+
+Všechny tři jsou na [GitHubu](https://github.com/germondai) pod licencí MIT.

@@ -1,0 +1,51 @@
+---
+title: 'Budování self-hosted blog enginu s Astro 6'
+description: 'Tento blog je vlastní open-source projekt. Jeden konfigurační soubor, 15 témat, 26 jazyků, nula JavaScriptu ve výchozím nastavení, perfektní skóre Lighthouse a připraveno pro Docker. Zde je popis, jak to funguje.'
+publishDate: 2026-06-04
+tags: ['astro', 'open-source', 'blog', 'self-hosted']
+---
+
+Většina blogovacích platforem tě nutí pracovat v jejich omezeních. Editor, který poskytují, témata, která nabízejí, URL struktura, kterou vnucují. Když chceš udělat něco, co neanticipovali, narazíš na zeď.
+
+Tento blog je jiný. Je to open-source projekt zvaný [@germondai/blog](https://github.com/germondai/blog) a každá stránka, kterou právě čteš, je z něj vygenerována. Forkni ho, uprav jeden TypeScript soubor, nasaď kdekoliv.
+
+## Jeden konfigurační soubor
+
+Vše, co má smysl, žije v `blog.config.ts`. Jméno autora, avatar, bio, sociální odkazy, téma, písmo, efekty, SEO nastavení. Podoba blogu vychází z toho, co tam vložíš. TypeScript zachytí překlepy při buildu, takže nikdy nenasadíš chybu v konfiguraci.
+
+## Témata a efekty
+
+Je tu 15 vestavěných témat s komplexními paletami gradientů, akcentů a animací. Stejné tři CSS-only efekty z mých jiných projektů zde také běží: pomalé přechody paprsků, plovoucí částice a kliknutím spuštěný efekt čočkového záblesku. Každý z nich lze zapnout nebo vypnout per-projekt.
+
+## Nula JavaScriptu ve výchozím nastavení
+
+Blog je postaven na [Astro 6](https://astro.build) se statickým výstupem. Do prohlížeče se neodesílá žádný JavaScript, pokud ho konkrétní komponenta nepotřebuje. Jediný interaktivní ostrov je efekt čočkového záblesku, který se načítá, když je prohlížeč nečinný. Vše ostatní je čistý HTML a CSS.
+
+Výsledkem jsou konzistentně perfektní skóre Core Web Vitals. Rychlé první vykreslení, žádný layout shift, žádné blokování interakcí.
+
+## 26 jazyků
+
+Systém i18n podporuje 26 jazykových kódů ze škatulky, od angličtiny a češtiny po japonštinu a arabštinu. Ale nekonfiguruješ, které jazyky jsou aktivní. Build prohledá adresář s obsahem a vygeneruje stránky pro každé lokale, které má alespoň jeden příspěvek. Přidej česky psaný příspěvek a české routes se automaticky objeví. Odstraň je všechny a zmizí.
+
+Všechny UI řetězce, včetně aria štítků a nápověd lightboxu, jsou přeloženy pro každý jazyk.
+
+## SEO zapečené přímo
+
+Každá stránka dostane kanonické URL adresy, hreflang alternativy, Open Graph tagy, Twitter Cards a strukturovaná JSON-LD data pokrývající schémata WebSite, Person a BlogPosting. Sitemap pokrývá všechna locales. Robots.txt je předkonfigurovaný.
+
+## Self-hostovaná písma
+
+Blog používá stejný systém písem jako moje jiné projekty. Prebuild skript stáhne zvolené písmo z Google Fonts při buildu, uloží ho lokálně a vygeneruje CSS s CLS-bezpečnými fallback metrikami. Návštěvníci se nikdy nepřipojí k CDN Googlu.
+
+## Spuštění vlastní instance
+
+```bash
+git clone https://github.com/germondai/blog
+cd blog
+cp blog.config.example.ts blog.config.ts
+bun dev
+```
+
+Pro produkci vícestupňový Docker build produkuje statický web servírovaný nginx. Stejný kontejner funguje na jakémkoliv VPS, Vercelu nebo Netlify.
+
+Zdrojový kód je na [GitHubu](https://github.com/germondai/blog) pod licencí AGPL-3.0.
