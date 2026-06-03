@@ -1,0 +1,51 @@
+---
+title: 'Resumable AI Streams: How I Made Sure You Never Lose a Response'
+description: 'Tracking stream position server-side so page refreshes, connection drops, and shared chat links all continue streaming exactly where they left off-no regeneration needed.'
+publishDate: 2025-12-08
+tags: ['ai', 'streaming', 'real-time', 'personal-projects', 'architecture']
+---
+
+AI chat interfaces have a reliability problem that nobody talks about enough. You get a long, detailed response halfway through generating, your connection blips, and it is gone. Refresh the page: gone. Share the link before it finishes: the other person sees a static partial response, not a live stream.
+
+I built resumable streams into [ai.mentorize.me](https://ai.mentorize.me) to fix all three cases.
+
+## The core problem
+
+Standard AI streaming works like this: a request goes out, chunks come back, the UI renders them as they arrive. The client holds all the state. If the client disconnects for any reason-tab close, refresh, network drop-the stream is abandoned. When it reconnects, it starts a new request and the model generates from scratch.
+
+For short responses this is tolerable. For long ones-detailed explanations, multi-step code implementations, comprehensive analyses-it is genuinely frustrating. A 60-second response interrupted at 45 seconds means you lost 45 seconds of generation.
+
+## The approach
+
+The fix is to move stream position tracking to the server.
+
+When a stream starts, the server creates a record with a stream ID, the message context, and a current position counter. Every chunk written to the response is also written to server-side storage with its position index. When the client reconnects, it sends the stream ID and its last known position. The server resumes from that exact character.
+
+Only the delta is transmitted on reconnect-no retransmitting content the client already has, no regenerating content from scratch. The model does not need to be called again at all.
+
+## What this enables
+
+**Connection drops**: the client detects the disconnect and reconnects automatically. From the user's perspective, there is a brief pause and then the text continues appearing. No user action required.
+
+**Page refreshes**: when the page reloads, the app checks for active stream IDs before rendering the conversation view. If one is found, it reattaches and the generation continues right where it left off. Refreshing mid-stream is now boring.
+
+**Shared links**: this one is the most useful for collaboration. If you share a chat link while an AI response is generating, anyone who opens that link sees the stream in real-time too. Not a screenshot, not a copy-a live feed of the same generation. Multiple people can watch a long technical explanation appear together, discuss it as it generates, and ask follow-up questions immediately when it finishes.
+
+## Implementation notes
+
+The position tracking needs to be efficient. I store stream state in Redis with a TTL rather than a persistent database-active streams are short-lived and do not need durability beyond their lifespan. The client stores the stream ID in the session and sends it with every reconnect attempt.
+
+For the shared link case, each connected client subscribes to the same stream ID. The server fans out chunks to all active subscribers. The fan-out logic is the same as any pub/sub pattern: publish to a channel keyed by stream ID, subscribe when a new client connects with that ID.
+
+Edge cases worth handling:
+- The stream completes while a client is disconnected. On reconnect, the server detects the stream is finished and sends the full remaining content in one go rather than pretending it is still live.
+- Multiple clients sharing a link see identical state because they are all reading from the same position sequence, not each maintaining their own.
+- Network conditions can cause out-of-order chunk delivery. The position index lets the client detect gaps and wait for the missing chunk before rendering, rather than displaying content out of sequence.
+
+## What it feels like in practice
+
+Mostly invisible, which is the point. You stop noticing that you have a network connection. Responses that used to require babysitting now just work regardless of what happens to your connection in the middle.
+
+For collaboration, the shared stream feature turned something that previously required screen sharing into something that just works from a link.
+
+The feature is live now on [ai.mentorize.me](https://ai.mentorize.me). Start a long response and refresh the page to see it continue. Share the link with someone and watch them see the same stream.

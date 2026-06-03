@@ -1,0 +1,46 @@
+---
+title: 'Mentorize V1: Building the First E-Learning Prototype'
+description: 'How the first version of Mentorize came together as a full-stack Nuxt app with MySQL, interactive courses, and video-based learning-and what I learned building it.'
+publishDate: 2025-03-13
+tags: ['nuxt', 'personal-projects', 'education', 'open-source']
+---
+
+Every project has a version zero that never ships cleanly. [Mentorize V1](https://old.mentorize.me) is mine that did.
+
+It started as a way to explore full-stack development end to end: a real e-learning platform with real users, real courses, and real problems to solve. Not a tutorial project. An actual thing.
+
+## What I was trying to build
+
+The idea was simple: a platform where mentors and learners could meet, and where learning material lived alongside the tools to help you absorb it. Interactive courses, video content, quizzes, tests, and a way for mentors to earn from what they made.
+
+The financial model was straightforward. Mentors create courses. Learners buy them. Revenue splits between the mentor, development, and server costs. No ads, no data brokering.
+
+## The stack
+
+The frontend was [Nuxt](https://nuxt.com). Vue 3's Composition API made component logic readable, and Nuxt's file-based routing removed a lot of the setup ceremony. I built over 50 custom components for forms, dashboards, course viewers, quiz interfaces, and mentor-student chat.
+
+The backend started with MySQL. I chose it because I knew it and needed to move fast. The data model was not complicated: users, courses, enrollments, content blocks, quiz results.
+
+That changed when the complexity of relational data grew. I migrated to PostgreSQL midway through development. The migration itself was smooth-the schema was clean enough that the switch was mostly a connection string and a few query adjustments.
+
+Content was Markdown-powered through [Nuxt Content](https://content.nuxt.com), which handled prose, code blocks, and embedded media without a custom rendering layer.
+
+## What it looked like in practice
+
+A learner logs in, browses the course library, enrolls, and works through content blocks at their own pace. Quizzes appear inline. Videos embed via standard players. Progress is tracked.
+
+A mentor logs in, creates a course with the editor, submits it for verification, and then earns from sales. On-site sessions-workshops, school visits-happened when the learner needed them, at a location they chose. The platform stayed out of it except for booking and payment.
+
+For verified mentors only, not open submissions from anyone. Every piece of content went through a review process before it went live. That kept quality high and the library trustworthy.
+
+## What I learned
+
+Building every layer yourself is slow but educational in a way that using starter kits is not. I learned why PostgreSQL wins over MySQL at relational complexity. I learned that a content schema designed for simplicity becomes a constraint when the platform grows. I learned that building auth yourself once teaches you exactly why you should use a library the next time.
+
+The prototype also taught me what the platform should actually be. Features I thought users would want turned out to matter less than the quality of mentor matching and the reliability of content delivery.
+
+## Where it ended up
+
+Mentorize V1 is still live at [old.mentorize.me](https://old.mentorize.me) as an archive. It is not the direction the platform is heading, but it is honest about where it started.
+
+The second version rebuilt everything from what the first version taught.

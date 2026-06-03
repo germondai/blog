@@ -1,0 +1,48 @@
+---
+title: 'Rebranding Mentorize Into a Multi-Service Platform'
+description: 'Turning a single e-learning prototype into a suite of interconnected enterprise services: learning app, AI mentor, team chat, cloud drive, and a shared UI component library.'
+publishDate: 2025-10-18
+tags: ['personal-projects', 'education', 'saas', 'architecture']
+---
+
+The original [Mentorize](https://old.mentorize.me) prototype did one thing. It worked, but everything lived in one codebase and one database, and growing it meant fighting the shape it was built in.
+
+The rebrand was not cosmetic. It was a decision to turn one monolith into a suite of focused services that share authentication, design, and data, but own their own domains.
+
+## Why modular
+
+Building the prototype taught me where the feature categories actually fell. Course creation and consumption is one problem. AI tutoring is a different problem. Team communication is a third. Cloud storage is a fourth. They share users and data, but they have different scaling requirements, different update cadences, and different UI patterns.
+
+Jamming them all into a single Nuxt app was the natural starting point, but not a sustainable destination. Splitting them out meant each service could evolve at its own pace without a change in one area risking a regression in another.
+
+## The services
+
+**[Mentorize](https://mentorize.me)** is now the core hub: landing page, blog, pricing, and community onboarding. The place you start before you go anywhere else.
+
+**[app.mentorize.me](https://app.mentorize.me)** is the learning platform-courses, quizzes, flashcards, and mentor-student interaction. Built with a substantially better UX than V1, enterprise integrations (CRM, LMS connectors), and a proper API layer for external tooling.
+
+**[ai.mentorize.me](https://ai.mentorize.me)** is the AI mentor. Not a generic chatbot wrapper, but a context-aware tutor that knows what you are studying, can generate practice material, and works across all major AI providers and their models.
+
+**[accounts.mentorize.me](https://accounts.mentorize.me)** handles everything authentication and account-related: login, registration, profile management, subscriptions, and cross-service session management. Centralizing this was the most important architectural decision. Every service delegates auth here instead of each maintaining its own user system.
+
+**`@mentorize/ui`** is a shared NPM package of Nuxt-compatible components. Every service pulls from the same component library, so visual consistency is enforced at the package level, not through convention and hope.
+
+## How the tech stack changed
+
+The foundation stayed the same: Nuxt for the frontend, PostgreSQL for persistent data. What changed was the layer between them.
+
+Each service exposes a versioned API. Cross-service calls go through those APIs. JWT tokens issued by the Accounts service are validated by every other service independently, which means no service needs to call Accounts on every request-just verify the token.
+
+The UI package is versioned and published to the NPM registry. When a component changes, services opt into the update. This is slower than a monorepo where everything shares code directly, but it makes service boundaries real. A breaking change in the component library cannot silently break a service that has not adopted it yet.
+
+## The model still holds
+
+Verified mentors create content. Content goes through review before it is published. Revenue from course sales splits between the mentor and platform operations. On-site sessions work on a booking model where the learner handles logistics.
+
+This structure did not change. The rebrand preserved what worked and replaced the parts that were limiting.
+
+## What is next
+
+The productivity layer-docs, slides, sheets-is in development. The longer-term vision is a workspace where learning and the tools that support it live under a single account without switching between unrelated apps.
+
+The services are live now. The free tier on the AI mentor and learning app covers a lot of ground before a paid plan matters.
