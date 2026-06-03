@@ -1,0 +1,43 @@
+---
+title: 'Forms Pretty: Jeden CSS soubor pro krásné HTML formuláře'
+description: 'Výchozí styly formulářů v prohlížečích vypadají hrozně v každém prohlížeči. Forms Pretty je univerzální CSS stylesheet, který okamžitě udělá každý formulář elegantním – bez závislosti na frameworku a bez konfigurace.'
+publishDate: 2024-09-16
+tags: ['css', 'open-source', 'forms', 'frontend']
+---
+
+Výchozí styly formulářů v prohlížečích jsou proslule špatné. Inputy vypadají jinak v každém prohlížeči. Select dropdown je téměř nemožné stylovat konzistentně. Mezera mezi designovým mockupem a skutečným HTML formulářem je něco, co každý frontend vývojář musel uzavírat ručně, opakovaně, v každém projektu.
+
+[Forms Pretty](https://github.com/germondai/forms-pretty) je mé řešení. Je to jeden CSS soubor. Stáhni ho, nalinkuj ho, hotovo.
+
+## Co dělá
+
+Forms Pretty styluje všechny standardní HTML prvky formulářů: textové inputy, textarey, select dropdowny, checkboxy, radio buttony a další. Styly jsou konzistentní napříč prohlížeči, čitelné ve výchozím nastavení a navržené tak, aby doplňovaly zbytek stránky, ne s ním bojovaly.
+
+Povinná pole automaticky dostanou hvězdičku. Žádný JavaScript není potřeba.
+
+Stylesheet je postavený na SCSS a TailwindCSS, pak zkompilovaný pomocí Vite do jednoho čistého CSS souboru. Nikdy nemusíš instalovat nic z npm ani konfigurovat build pipeline, abys ho mohl použít. Stačí nalinkovat zkompilovaný soubor.
+
+```html
+<link rel="stylesheet" href="prettyForms.css" />
+```
+
+To je celá integrace. Tvé formuláře budou okamžitě vypadat lépe.
+
+## Proč samostatný soubor
+
+Většina CSS knihoven pro formuláře je součástí většího systému. Přicházejí v balíčku s resetem, gridem, typografickými pravidly, komponentovými třídami. Jejich přidání znamená přijmout to vše, nebo strávit čas odstraňováním toho, co nepotřebuješ.
+
+Forms Pretty dělá jednu věc. Stará se o formuláře. Pokud tvůj projekt již má design systém, zapadne bez bojování s čímkoliv. Pokud něco stavíš rychle a nechceš nastavovat celý CSS stack, je to stále správná volba.
+
+## Použití v projektu
+
+Stáhni nejnovější CSS soubor ze [stránky releases](https://github.com/germondai/forms-pretty/releases) a nalinkuj ho ve svém HTML. Žádné npm, žádný build krok, žádná konfigurace. Funguje v jakémkoliv projektu, jakémkoliv frameworku, jakémkoliv technologickém stacku.
+
+Pokud chceš přizpůsobit nebo přispět, vývojové prostředí používá pnpm:
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+Zdrojový kód je na [GitHubu](https://github.com/germondai/forms-pretty) pod licencí MIT.

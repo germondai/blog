@@ -1,0 +1,66 @@
+---
+title: 'Opustil jsem Linktree a postavil si vlastní, zdarma'
+description: 'Unavený z vodoznaků Linktree a přizpůsobení za poplatek jsem si postavil vlastní osobní stránku s odkazy. Open source, self-hostovaná, 15 témat a nastavení zabere zhruba pět minut.'
+publishDate: 2026-05-10
+tags: ['open-source', 'self-hosted', 'personal-website', 'bun']
+---
+
+Sdílíš odkazy všude. Bio na Instagramu. Twitter/X. E-mailový podpis. GitHub profil. Vizitka. Obvykle je tu jeden problém: každý nástroj, který ti pomáhá spravovat tu jednu cílovou stránku, buď dává svůj logo na tvou stránku, zamyká dobré věci za předplatné, nebo to prostě nepůsobí jako *tvoje*.
+
+Proto jsem postavil [@germondai/links](https://github.com/germondai/links), který používám na [links.germondai.com](https://links.germondai.com).
+
+## Co to je
+
+Osobní stránka s odkazy. Jedna URL, všechny tvé odkazy, tvá značka, nula vodoznaků. Forkneš projekt, upravíš jeden TypeScript soubor a nasadíš. Žádný účet k vytváření, žádný dashboard, do kterého se přihlašovat, žádný měsíční poplatek.
+
+```typescript
+const config: LinksConfig = {
+  profile: {
+    name: 'Germond',
+    username: 'germondai',
+    bio: 'Aspiring Full-Stack Web Developer',
+    avatar: 'https://github.com/germondai.png',
+  },
+  links: [
+    { title: 'Portfolio', url: 'https://germondai.com', icon: 'icon:github:mono:fff' },
+    { title: 'GitHub', url: 'https://github.com/germondai', icon: 'icon:github:mono:fff' },
+  ],
+}
+```
+
+To je celá konfigurace. TypeScript chytí překlepy okamžitě: překlepneš název tématu a je to chyba buildu, ne záhada za runtime.
+
+## Témata a vizuální efekty
+
+Je tu 15 vestavěných témat, každé se svým vlastním gradientem, akcentovou barvou a animovanými efekty. To, které používám, `phantom`, je hluboká tmavá indigo paleta. Ostatní možnosti sahají od teplé jantarové a tropické smaragdové po cyberpunkovou azurovou a krvavě karmínovou.
+
+Za každou stránkou běží tři CSS-only efekty: pomalé přechody gradientových paprsků, plovoucí částicové tečky a kliknutím spuštěný efekt světelné záblesku. Všechny respektují nastavení přístupnosti `prefers-reduced-motion` a lze je individuálně vypnout v konfiguraci.
+
+## Self-hostovaná písma, žádné sledování Googlem
+
+Většina stránek s odkazy načítá písma z Google CDN. To znamená DNS dotaz, síťový požadavek a IP adresa tvého návštěvníka jde Googlu pokaždé, když někdo otevře tvou stránku.
+
+Tento projekt stáhne tvé zvolené písmo na tvůj vlastní server při buildu. Návštěvníci dostanou rychlé načítání a jejich data zůstanou mezi tebou a jimi. Na výběr je 41 písem, od Inter a Geist po JetBrains Mono a Playfair Display.
+
+## Dev panel
+
+Zatímco nastavuješ věci lokálně, plovoucí ikona ozubeného kola otevře živý konfigurační panel přímo v prohlížeči. Přepínáš témata, měníš písma, přeřazuješ odkazy, přepínáš efekty – vše bez dotýkání se souboru. Až jsi spokojený, panel exportuje TypeScript fragment, který vložíš do své konfigurace.
+
+## Nasazení
+
+```bash
+git clone https://github.com/germondai/links
+cd links
+cp links.config.example.ts links.config.ts
+bun dev
+
+# produkce
+docker build -t my-links .
+docker run -p 3000:3000 my-links
+```
+
+Vercel i Netlify fungují bez jakéhokoliv dalšího nastavení. Pro self-hosting používám Docker na malém VPS s Caddy vepředu.
+
+---
+
+Zdrojový kód na [GitHubu](https://github.com/germondai/links) pod licencí AGPL-3.0.

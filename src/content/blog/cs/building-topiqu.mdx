@@ -1,0 +1,44 @@
+---
+title: 'Topiqu: Budování blogovací platformy, kde AI dělá těžkou práci'
+description: 'Topiqu je full-stack blogovací platforma s AI writing asistentem, bohatým editorem, vlastními doménami a Stripe fakturací. Zde je popis, jak a proč jsem ji postavil.'
+publishDate: 2025-11-12
+tags: ['ai', 'blogging', 'saas', 'personal-projects', 'nuxt']
+---
+
+Psaní není ta těžká část provozování blogu. Najít čas, překonat prázdnou stránku, udělat příspěvek vypadající dobře, publikovat ho na doméně, která se cítí jako tvoje. To je ta těžká část. Většina nástrojů řeší jeden z těchto problémů a ignoruje zbytek.
+
+[Topiqu](https://topiqu.com) je můj pokus vyřešit je všechny najednou.
+
+## Bohatý editor, který stojí stranou
+
+Editor je postaven na [Tiptap](https://tiptap.dev), vysoce kompozitabilním rich-text frameworku. Co to v praxi znamená: dostaneš zážitek z psaní, který se blíží dobrému textovému procesoru, ne vývojářskému markdown textovému poli.
+
+Příkazy lomítka ti umožní vkládat jakýkoliv typ bloku: nadpisy, obrázky, průzkumy, vložení – aniž by ti přerušily flow. Automatické ukládání běží neustále na pozadí. Koncepty jsou verzovány. Když jsi připraven publikovat, release flow je jedno kliknutí.
+
+## AI, která pomáhá, když jsi zaseknutý
+
+Každý příspěvek má vestavěného AI writing asistenta. Může vygenerovat celý koncept z výzvy, rozšířit sekci, kterou jsi nastínil, přeformulovat něco, co se nečte správně, nebo navrhnout obrázky odpovídající obsahu. Použití tokenů je měřeno per plán, takže je dostupné všem bez spalování nákladů na infrastrukturu na těžkých uživatelích.
+
+AI integrace běží na [Grok od xAI](https://x.ai) prostřednictvím Vercel AI SDK. Volba byla praktická: Grok je rychlý, má silné kontextové okno a dobře zvládá strukturované kreativní úkoly.
+
+## Tvůj blog, tvoje doména
+
+Každý web na Topiqu standardně žije na vlastní subdoméně. Pokud chceš vlastní doménu (`blog.tvojznacka.com`), přidáš CNAME záznam a platforma se postará o zbytek, včetně poskytnutí certifikátu. Více webů sdílí stejný účet s izolovanými daty a samostatnou fakturací.
+
+Tato multi-tenant architektura je to, co dělá Topiqu víc než osobní blogovací nástroj. Agentury mohou provozovat více klientských webů. Nezávislí tvůrci mohou mít profesionální domov. Týmy mohou publikovat pod vlastní značkou.
+
+## Real-time notifikace
+
+Systém notifikací SSE (Server-Sent Events) udržuje čtenáře a přispěvatele aktualizované v reálném čase. Nové příspěvky, komentáře a zmínky se okamžitě zobrazují bez pollování.
+
+## Postavený na seriózním stacku
+
+Kompletní stack je Nuxt 4 na frontendu s PostgreSQL a Prisma pro data. Kontrolu přístupu zajišťuje [ZenStack](https://zenstack.dev), který poskytuje bezpečnostní politiky na úrovni řádků vynucující, kdo může číst a zapisovat co, přímo na datové vrstvě. Úložiště souborů běží na AWS S3. Transakční e-mail využívá AWS SES s MJML šablonami.
+
+Systém předplatného je Stripe s měsíčními a ročními fakturačními cykly, upgradami plánů a jednorázovými token top-upy pro AI použití. Vše je řízeno webhooky, takže změny plánu se aplikují okamžitě.
+
+## Proč jsem ho postavil
+
+Chtěl jsem platformu, která respektuje pisatele natolik, aby jim poskytla skutečný nástroj, ne okleštěný editor s "pro plánem", který odemkne základní funkce. Topiqu začíná s plným zážitkem z psaní a účtuje za infrastrukturu, která umožňuje škálování.
+
+Je živý na [topiqu.com](https://topiqu.com). Pokud píšeš, stojí za vyzkoušení.
