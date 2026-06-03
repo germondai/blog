@@ -1,0 +1,136 @@
+---
+title: 'Elysia and Eden: End-to-End Type Safety Built for Bun'
+description: 'Elysia is a Bun-native web framework with performance numbers that make most Node.js frameworks look slow. Eden gives you tRPC-style client type safety with less configuration-and you can bring Zod, Valibot, or any Standard Schema validator.'
+publishDate: 2025-10-30
+tags: ['bun', 'elysia', 'typescript', 'web-development', 'performance']
+---
+
+[Elysia](https://elysiajs.com) is a TypeScript web framework built specifically for Bun. It is fast in a way that feels different from "fast for a JavaScript framework"-the benchmark numbers put it ahead of Fastify, Hono, and most other Node.js alternatives by a significant margin, because it is not running on Node.js.
+
+[Eden](https://elysiajs.com/eden/overview) is Elysia's companion client library. It gives you end-to-end type safety between your Elysia server and any TypeScript client-similar to what tRPC does for the Node.js ecosystem, but with considerably less setup.
+
+## A minimal Elysia server
+
+```typescript
+import { Elysia } from 'elysia'
+import { z } from 'zod'
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1),
+  content: z.string(),
+})
+
+const app = new Elysia()
+  .get('/hello', () => 'Hello from Elysia')
+  .post('/posts', ({ body }) => createPost(body), {
+    body: CreatePostSchema,
+  })
+  .listen(3000)
+
+export type App = typeof app
+```
+
+Elysia supports [Standard Schema](https://standardschema.dev) validators-Zod, Valibot, ArkType, and TypeBox all work. The exported `typeof app` is what Eden uses to infer types on the client. No separate type file, no code generation.
+
+## Eden on the client
+
+```typescript
+import { treaty } from '@elysiajs/eden'
+import type { App } from './server'
+
+const api = treaty<App>('http://localhost:3000')
+
+// Fully typed - no type annotations needed
+const { data, error } = await api.hello.get()
+const { data: post } = await api.posts.post({
+  title: 'Hello World',
+  content: 'My first post',
+})
+```
+
+`post` is typed as whatever your server returns. `title` and `content` are validated against the schema-TypeScript will error if you miss a required field or pass the wrong type. The types come directly from the server's `typeof app`, with no schema file to maintain separately and no code generation step to run.
+
+## How this compares to tRPC
+
+| Aspect | tRPC | Elysia + Eden |
+|--------|------|---------------|
+| Runtime | Node.js / Edge | Bun (primarily) |
+| Setup | Router + adapter + provider | Just export `typeof app` |
+| Client calls | `trpc.posts.create.mutate({})` | `api.posts.post({})` |
+| Validation | Zod/Valibot (external) | Zod, Valibot, ArkType, TypeBox |
+| REST-compatible | No | Yes |
+| Performance | Node-bound | Bun-native |
+| Ecosystem maturity | Very mature | Growing fast |
+
+tRPC has a larger ecosystem and more community resources, which matters for complex projects or teams unfamiliar with Elysia. Eden is simpler to set up and faster in practice when you are already using Bun.
+
+## Performance numbers
+
+Elysia consistently ranks among the top-performing JavaScript/TypeScript web frameworks in benchmark suites. The numbers vary by benchmark design, but the pattern is consistent:
+
+```
+Requests/sec (approximate, varies by benchmark):
+┌──────────────────┬─────────────┐
+│ Elysia (Bun)     │  ~250,000+  │
+│ Hono (Bun)       │  ~200,000+  │
+│ Fastify (Node)   │  ~80,000    │
+│ Express (Node)   │  ~40,000    │
+└──────────────────┴─────────────┘
+```
+
+The gap between Bun-native frameworks and Node.js frameworks is not primarily about the framework code-it is about the runtime. Bun's HTTP handling is implemented in Zig at the system level rather than in JavaScript.
+
+## Validation and schemas
+
+I reach for Zod by default because I use it everywhere else and the schemas are readable. Valibot is a good pick if bundle size matters-it is tree-shakeable and considerably smaller. ArkType has very fast runtime validation. TypeBox is Elysia's native format and has the deepest feature set. All four plug in the same way.
+
+```typescript
+import { z } from 'zod'
+
+const UserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(2),
+  age: z.number().min(18),
+})
+
+const UserResponseSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string(),
+})
+
+const app = new Elysia()
+  .use(swagger())  // auto-generates OpenAPI docs from schemas
+  .post('/users', ({ body }) => createUser(body), {
+    body: UserSchema,
+    response: UserResponseSchema,
+  })
+```
+
+The `swagger()` plugin reads the schemas and generates OpenAPI docs automatically. Validation runs at the edge of the route-bad input never reaches your handler.
+
+## Plugin system
+
+Elysia's plugin pattern makes it easy to group routes and share state:
+
+```typescript
+const userPlugin = new Elysia({ prefix: '/users' })
+  .get('/', () => getAllUsers())
+  .get('/:id', ({ params }) => getUserById(params.id))
+  .post('/', ({ body }) => createUser(body), { body: UserSchema })
+
+const app = new Elysia()
+  .use(userPlugin)
+  .use(postPlugin)
+  .listen(3000)
+```
+
+Each plugin is independently typed. Eden infers all the routes from all the plugins when you export `typeof app`.
+
+## When to choose Elysia
+
+New TypeScript backend on Bun: Elysia. The DX is clean, performance is better than anything Node-based, and Eden kills the type synchronization problem without all the tRPC ceremony.
+
+Needs to run on Node or Edge: Hono is the closest equivalent-similar chained API, broader runtime support, slightly less tight client integration.
+
+Existing tRPC project: not worth migrating. For anything new on Bun, this is my starting point.

@@ -1,0 +1,109 @@
+---
+title: 'One VPS to Rule Them All: Self-Hosting Instead of Paying Per Service'
+description: 'A single $20/month VPS can replace dozens of paid SaaS subscriptions. Here is what I host on mine, what it costs, and how Traefik + Docker make managing everything straightforward.'
+publishDate: 2025-05-25
+tags: ['self-hosting', 'devops', 'infrastructure', 'docker']
+---
+
+The default path for deploying web projects is one managed service per problem. Vercel for hosting. Supabase for the database. Upstash for Redis. S3 or R2 for storage. Each one is convenient in isolation. Together they add up fast-and each one is a dependency you cannot fully control.
+
+I moved everything I run to a single VPS.
+
+## What a $20/month VPS can run
+
+A server with 4 vCPUs, 8GB RAM, and 160GB SSD-which is what Hetzner sells for around €15–20 per month-can comfortably run:
+
+| Service | What it replaces |
+|---------|-----------------|
+| Caddy or Traefik | Nginx, SSL management |
+| PostgreSQL | Supabase, PlanetScale, RDS |
+| Redis | Upstash, Elasticache |
+| MinIO | S3, R2, Cloudflare |
+| Gitea | GitHub (private repos) |
+| Plausible | Google Analytics |
+| Umami | Mixpanel |
+| n8n | Zapier, Make |
+| Mailpit | Mailtrap (dev) |
+| Multiple Nuxt apps | Vercel, Netlify |
+| Multiple static sites | Cloudflare Pages |
+
+That is not a list of compromises. These are production-grade tools that large companies also use. The difference is you run them yourself.
+
+## The cost comparison
+
+A realistic SaaS stack for a solo developer or small team:
+
+```
+Vercel Pro        $20/month
+PlanetScale       $29/month
+Upstash Redis     $10/month
+Cloudflare R2     $5/month
+Analytics (paid)  $9/month
+─────────────────────────
+Total             $73/month  →  $876/year
+```
+
+A VPS that runs all of this:
+
+```
+Hetzner CX32     €18/month
+Backblaze B2     $2/month (backups)
+─────────────────────────
+Total            ~$22/month  →  ~$264/year
+```
+
+More importantly, you own the data, you control the configuration, and nothing disappears because a startup pivoted or a VC decided the product was not going to reach scale.
+
+## How Docker + Traefik make this manageable
+
+Running ten services on one machine sounds like a system administration nightmare from 2010. With Docker Compose and Traefik, it is not.
+
+Each service is a `docker-compose.yml` file in its own directory. Traefik reads Docker labels and routes traffic automatically. Adding a new service is adding a compose file with labels and running `docker compose up -d`. Removing it is `docker compose down`.
+
+```yaml
+# example: running Plausible Analytics
+services:
+  plausible:
+    image: ghcr.io/plausible/community-edition:v2
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.plausible.rule=Host(`analytics.example.com`)
+      - traefik.http.routers.plausible.tls.certresolver=letsencrypt
+    environment:
+      - DATABASE_URL=postgres://...
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+SSL is handled by Traefik automatically. No Certbot cron job. No manual certificate management.
+
+## The infrastructure that matters
+
+**Backups**: the thing that makes self-hosting viable is automated backups. I run a daily script that dumps all Postgres databases, tarballs the MinIO data, and ships everything to Backblaze B2. Rclone handles the transfer. The backup script runs in a cron job and sends a notification on failure. Test your restores.
+
+**Monitoring**: a minimal Uptime Kuma instance running on the same server (or ideally a second one) monitors all services and sends alerts via Telegram or email when something is down. Free, open source, one container.
+
+**Updates**: `docker compose pull && docker compose up -d` in each service directory. A simple script can loop over all compose directories. For security patches, set up automatic unattended upgrades on the host OS.
+
+## What you give up
+
+Managed services handle scaling for you. If your Postgres database suddenly needs to handle 10x the traffic, a managed service scales it. On a VPS, you upgrade the server or add replicas manually.
+
+For most personal projects and small businesses, this is not a real constraint. A Hetzner CX52 (8 vCPUs, 16GB RAM) handles more concurrent users than most apps will ever see. If you legitimately need database-level scaling, you have traffic volumes where the cost of a managed solution makes sense.
+
+You also give up the convenience of a polished dashboard for each service. The tradeoff: you understand exactly what your stack does and nothing surprises you.
+
+## Getting started
+
+Start small. Move one thing.
+
+Pick one SaaS service you pay for that has a solid self-hosted alternative-Plausible instead of Google Analytics, Gitea instead of private GitHub repos, MinIO instead of S3. Spin it up on the cheapest VPS you can find, run it for a month, and see how the experience feels.
+
+The goal is not to self-host everything on day one. It is to understand what is actually running your projects so you can make intentional decisions about where you pay for managed services and where you own the infrastructure.
+
+[Awesome Self-Hosted](https://github.com/awesome-selfhosted/awesome-selfhosted) is the best starting point for finding alternatives to whatever you currently pay for.

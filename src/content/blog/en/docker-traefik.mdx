@@ -1,0 +1,128 @@
+---
+title: 'Why I Run Everything Behind Traefik Instead of Nginx'
+description: 'Traefik reads your Docker labels and configures itself automatically. SSL renews itself. New services appear without touching a config file. Here is why it replaced Nginx in my stack.'
+publishDate: 2025-07-15
+tags: ['docker', 'devops', 'self-hosting', 'infrastructure']
+---
+
+Running multiple services on a server with Nginx is a configuration archaeology problem. Every new service needs a new server block, a new SSL cert renewal entry, and a reload. Get the config wrong and everything is down. Get the SSL renewal wrong and things break at 3am.
+
+[Traefik](https://traefik.io) is a reverse proxy that reads Docker labels and configures itself. You describe what you want on the container, and Traefik figures out the routing. SSL via Let's Encrypt renews automatically. New deployments require zero proxy config changes.
+
+## What Traefik does differently
+
+With Nginx, the proxy and the service are configured separately. You write a server block for each service, manage SSL certs with Certbot, and remember to reload Nginx after changes. The proxy does not know about Docker at all.
+
+With Traefik, the proxy discovers services through Docker's API. Each container tells Traefik how to route to it via labels. Add a container with the right labels and it becomes accessible. Remove the container and it disappears. Traefik sees the change in seconds.
+
+```
+┌─────────────────────────────────────────┐
+│              Internet                   │
+└──────────────────┬──────────────────────┘
+                   │ HTTPS (443)
+         ┌─────────▼─────────┐
+         │      Traefik      │  ← reads Docker labels
+         │   (auto SSL/TLS)  │    discovers services
+         └───┬───────────┬───┘    routes traffic
+             │           │
+    ┌────────▼──┐  ┌─────▼──────┐
+    │  app:3000 │  │  api:8080  │
+    └───────────┘  └────────────┘
+```
+
+## A working setup
+
+The `docker-compose.yml` for Traefik itself:
+
+```yaml
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=you@example.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme.json:/acme.json
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+And for any service you want to expose:
+
+```yaml
+services:
+  my-app:
+    image: my-app:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.my-app.rule=Host(`app.example.com`)
+      - traefik.http.routers.my-app.entrypoints=websecure
+      - traefik.http.routers.my-app.tls.certresolver=letsencrypt
+      - traefik.http.services.my-app.loadbalancer.server.port=3000
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+That is the entire configuration for `app.example.com` with valid SSL. No Nginx config. No Certbot cron job. Traefik picks this up without restarting.
+
+## SSL that renews itself
+
+With Nginx + Certbot, cert renewal is a cron job that you have to set up and verify is running. With Traefik, the ACME integration is built in. Certificates are requested on first access and renewed automatically before they expire. The `acme.json` file is where Traefik stores the certs between restarts.
+
+One thing to get right: create `acme.json` with `chmod 600` before the first run or Let's Encrypt will reject the storage location.
+
+## Adding a new service
+
+Once Traefik is running, adding a new service is just adding labels to the compose file for that service. No changes to Traefik's own config. No restart of the proxy. The new service becomes live within seconds of the container starting.
+
+For a stack with five or ten services, this is transformative. The proxy is infrastructure you set up once. After that, each team or project deploys independently.
+
+## Middleware in labels
+
+Traefik middleware handles things like HTTP→HTTPS redirects, basic auth, rate limiting, and headers-all in labels.
+
+```yaml
+labels:
+  # Redirect HTTP to HTTPS
+  - traefik.http.middlewares.redirect-https.redirectscheme.scheme=https
+  - traefik.http.routers.my-app-http.middlewares=redirect-https
+
+  # Add security headers
+  - traefik.http.middlewares.secure-headers.headers.stsSeconds=31536000
+  - traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true
+```
+
+## When Nginx is still reasonable
+
+For a single service, or when you want to serve static files from disk, Nginx is simpler. Traefik adds value when you are running multiple services on one machine and want them to appear and disappear without touching the proxy config.
+
+For static sites, I still use Nginx inside the container (the `nginx:alpine` image serving `dist/`). Traefik just routes HTTPS traffic to that Nginx container. They complement each other well.
+
+## Dashboard
+
+Traefik has a web dashboard that shows all the routers, services, and middleware it has discovered. Useful for debugging why a service is not routing as expected.
+
+```yaml
+command:
+  - --api.dashboard=true
+  - --api.insecure=true  # only for local dev, gate it with auth in production
+```
+
+It is one of those tools that seems over-engineered for a single service and obviously right once you are running more than two.
