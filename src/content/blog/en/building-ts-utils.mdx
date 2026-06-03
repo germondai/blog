@@ -1,0 +1,74 @@
+---
+title: 'ts-utils: A TypeScript Utility Library Covering Almost Everything'
+description: 'Twenty-plus utility modules for TypeScript covering strings, arrays, dates, math, colors, crypto, URLs, media, and more. One package, consistently typed, built with Bun.'
+publishDate: 2025-05-14
+tags: ['typescript', 'open-source', 'utilities', 'bun']
+---
+
+Every TypeScript project accumulates the same utilities. A function to truncate a string. A debounce helper. Something to format a number with commas. A color conversion function you grabbed from Stack Overflow years ago.
+
+[@germondai/ts-utils](https://github.com/germondai/ts-utils) is my attempt to put all of those in one consistently maintained, fully typed package instead of copying them between projects.
+
+## What is in it
+
+The library is organized into modules, each covering a specific domain:
+
+**`string`**: trimming, casing, truncation, slug generation, interpolation helpers.
+
+**`array`**: chunking, deduplication, flattening, sorting, grouping, shuffling.
+
+**`object`**: deep merge, deep clone, key filtering, transformation utilities.
+
+**`math`**: clamping, rounding, range generation, statistics helpers.
+
+**`time`**: formatting, parsing, duration calculation, relative time strings.
+
+**`color`**: hex/rgb/hsl conversions, lightness checks, color mixing.
+
+**`url`**: building, parsing, query string manipulation, path utilities.
+
+**`string`**: all the usual string operations you reach for constantly.
+
+**`regex`**: pre-built patterns for emails, URLs, slugs, passwords, and more.
+
+**`crypto`**: hashing helpers, UUID generation, random string utilities.
+
+**`data`**: serialization, validation helpers, schema utilities.
+
+**`media`**: MIME type detection, file size formatting, image dimension helpers.
+
+**`promise`**: retry logic, timeout wrappers, concurrency helpers.
+
+**`function`**: debounce, throttle, memoize, compose.
+
+**`type`**: runtime type checking and narrowing utilities.
+
+**`convertor`**: unit conversions, number base conversion, encoding utilities.
+
+**`normalize`**: input normalization for names, phone numbers, addresses.
+
+**`collection`**: immutable collection operations.
+
+**`constants`**: common constant values used across projects.
+
+**`errors`**: typed error classes and error handling utilities.
+
+**`size`**: byte formatting, viewport size utilities.
+
+## Installation
+
+```bash
+bun add @germondai/ts-utils
+# or
+npm install @germondai/ts-utils
+```
+
+Everything is exported from the package root with full TypeScript types. Tree-shaking works, so you only bundle what you actually import.
+
+## Why a single package
+
+The alternative is copying utilities between projects or maintaining separate micro-packages for each domain. Both create drift: the string utilities in project A diverge from the ones in project B, and the next time you need to fix a bug you fix it in two places.
+
+One package means one source of truth. Fix it once, update it everywhere.
+
+Source is on [GitHub](https://github.com/germondai/ts-utils) under MIT.

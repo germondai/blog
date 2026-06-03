@@ -1,0 +1,75 @@
+---
+title: 'Building a Free Icon API for Developer Portfolios and READMEs'
+description: 'Every developer portfolio and GitHub README deserves sharp tech stack icons. I built a free, self-hosted API that turns a URL into a polished icon strip, no account required, no watermarks, no limits.'
+publishDate: 2026-04-15
+tags: ['open-source', 'developer-tools', 'api', 'bun']
+---
+
+When developers share what they build, they want credit for the tools they used. A clean row of tech stack icons in a README, a portfolio sidebar, or a personal site is one of the fastest ways to communicate what you know and what you care about.
+
+The existing options all had the same problems: wrong icons, awkward sizing, forced watermarks, or rate limits that kicked in the moment you tried to use them seriously. So I built [@germondai/icons](https://github.com/germondai/icons), a self-hosted icon API running at [icons.germondai.com](https://icons.germondai.com).
+
+Give it a URL like this:
+
+```
+/icons?i=bun,astro,typescript:mono:fff&theme=dark
+```
+
+and it returns a polished SVG strip you can drop into anything.
+
+## How the URL format works
+
+Each icon is specified as `slug[:option...]`. Options are detected by their shape, no explicit key names to memorize:
+
+| Pattern | What it does |
+|---------|-------------|
+| `react` | original colors, theme background |
+| `react:mono` | single-color version |
+| `react:mono:fff` | single-color, white fill |
+| `react:transparent` | transparent background |
+| `react:full` | fills the full cell, no padding |
+| `react:bg1a1a2e` | explicit background color |
+| `react:r0.5` | rounded corners (0 to 1) |
+
+There is a useful distinction worth knowing: `react:fff` sets the icon's fill color to white, while `react:bgfff` sets the cell background to white. You can combine them: `react:mono:fff:bg1e1e2e:r0.8`.
+
+The parser detects each part automatically. A 3-6 character hex string is a fill color. A string prefixed with `bg` is a background color. A number prefixed with `r` is a corner radius. Everything composes in any order.
+
+## Four variants, graceful fallbacks
+
+Every icon ships in up to four variants: `original` (full color), `plain` (simplified fill), `line` (outlined), and `mono` (single color). When you request a variant that does not exist for a given icon, the API steps down the priority list automatically. You never get a broken image.
+
+## Themes
+
+The `&theme=` parameter applies a named background color to all cells at once. There are over a dozen themes based on Tailwind CSS color palettes. Individual icons can override the theme with their own options, so you can mix backgrounds in a single strip.
+
+## Under the hood
+
+The service runs on **Bun** with **Elysia**. SVG rendering uses `@resvg/resvg-js`, and raster conversion (PNG, WebP) uses `Bun.Image`. A typical SVG response is under 2ms. Raster formats are rate-limited at 20 requests per minute per IP since format conversion is heavier.
+
+Responses are cached by the full query string. SVG hits are under 1ms since the cache check is faster than parsing. Missing slugs return as empty cells and are reported in the `X-Missing-Icons` response header, so you know exactly what did not resolve.
+
+## Endpoints
+
+| Path | What it does |
+|------|-------------|
+| `/icons` | generate a strip |
+| `/icons/all` | searchable gallery of every slug |
+| `/icons/list` | flat slug list for tooling |
+| `/meta/themes` | available themes and colors |
+| `/meta/variants` | available variants per icon |
+
+## Running it yourself
+
+```bash
+git clone https://github.com/germondai/icons
+cd icons
+bun install
+bun dev
+```
+
+The Docker image ends up under 200MB using a multi-stage build. This blog uses the service for the social icons in the sidebar: monochrome icons on transparent backgrounds that blend cleanly with dark themes.
+
+---
+
+Source on [GitHub](https://github.com/germondai/icons) under MIT.

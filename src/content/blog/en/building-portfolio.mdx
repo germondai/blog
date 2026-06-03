@@ -1,0 +1,46 @@
+---
+title: 'Building a Portfolio That Actually Shows Who You Are'
+description: 'A personal portfolio should do more than list skills. Mine has holographic tilt effects, parallax scrolling, a timeline of my work, and a live project showcase. Here is how I built it with Nuxt.'
+publishDate: 2024-05-20
+tags: ['portfolio', 'nuxt', 'personal-projects', 'vue']
+---
+
+Most developer portfolios look the same. A headline, a skills section with icon badges, three project cards, and a contact form. They check the boxes without leaving any impression.
+
+I wanted something different. My portfolio at [germondai.com](https://germondai.com) is built to feel alive, to move, and to actually show what I am capable of building, not just describe it.
+
+## What it contains
+
+The site is organized into four sections. The landing introduces me immediately. The About section gives more context on who I am and what I am focused on. The Timeline traces my path through projects and learning. And the Work section shows the projects themselves, each with a link to a live demo.
+
+That last part matters more than most portfolios acknowledge. Anyone can list a project name and a tech stack. Linking directly to a running demo says: this thing works.
+
+## The effects
+
+The part most people notice first are the visual effects, and they are all intentional.
+
+**Holo tilt** makes cards react to cursor movement with a holographic shimmer. It is the kind of effect that looks like a magic trick the first time you see it and like a natural part of the interface the third time.
+
+**Parallax** layers elements at different scroll speeds, giving the page genuine depth instead of a flat scroll. It is subtle but it changes how the page feels to move through.
+
+**Reveal** animates elements into view as they enter the viewport, so the page builds itself rather than dumping everything at once.
+
+**Flare** adds light streaks that follow interaction, similar to the lens flare effect in my other projects.
+
+**Float** keeps certain elements in gentle perpetual motion, giving the page a sense of life even when the user is not doing anything.
+
+All of these are built in Vue and use CSS animations where possible to keep things performant.
+
+## The stack
+
+The portfolio runs on [Nuxt 4](https://nuxt.com) with Vue 3. Styling is TailwindCSS. [VueUse](https://vueuse.org) handles browser API integrations like mouse position and scroll tracking. [VeeValidate](https://vee-validate.logaretm.com) manages the contact form validation. Internationalization is handled by Vue I18n, with the site available in multiple languages.
+
+The contact form is connected to an API that stores submissions in a database. It is not just a mailto link.
+
+## Why build your own
+
+Third-party portfolio builders are convenient, but they come with limits. Limited layouts. Limited interactions. Usually a subdomain or a logo somewhere you did not ask for. And crucially, they do not demonstrate anything about your ability to build.
+
+A portfolio you built yourself is also a project. It is evidence.
+
+The source is on [GitHub](https://github.com/germondai/portfolio) and the live version is at [germondai.com](https://germondai.com).

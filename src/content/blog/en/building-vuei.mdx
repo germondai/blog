@@ -1,0 +1,36 @@
+---
+title: 'VueI: Building a Vue UI Component Library as a Nuxt Module'
+description: 'VueI is an open-source Vue 3 UI component library distributed as a Nuxt module. Install it with one command, get a full set of typed, accessible components built with TailwindCSS.'
+publishDate: 2025-07-30
+tags: ['vue', 'nuxt', 'open-source', 'ui', 'typescript']
+---
+
+Every Nuxt project starts the same way. You need a button component. A modal. An input with validation states. Either you write them from scratch, copy them from a previous project, or reach for a UI library that may or may not fit your design system.
+
+[VueI](https://github.com/germondai/vuei) is my answer to that problem: a Vue 3 component library distributed as a Nuxt module, with components built on TailwindCSS and fully typed with TypeScript.
+
+## Installing it
+
+```bash
+pnpx nuxi module add @vuei/nuxt
+```
+
+That is the full installation. The module registers all components globally in your Nuxt app. No imports needed in individual files.
+
+## What it is built with
+
+The component stack is Vue 3 with the Composition API, TypeScript throughout, and TailwindCSS for styling. The module uses Nuxt's module API to auto-import components and expose configuration options through `nuxt.config.ts`.
+
+The development environment includes a playground app for iterating on components without a separate project, Vitest for unit testing, and ESLint for code consistency.
+
+## Why a Nuxt module specifically
+
+Distributing as a Nuxt module rather than a plain Vue library changes how the components integrate. They participate in Nuxt's auto-import system, the build pipeline, and any server-side rendering behavior. Components are not just available; they are part of the framework.
+
+This also means configuration can go in `nuxt.config.ts` alongside everything else, keeping the project setup consolidated.
+
+## Status
+
+VueI is actively developed. The core component set is in place and expanding. If you are building a Nuxt project and want typed, accessible components that work with TailwindCSS, it is worth adding.
+
+Issues, feedback, and contributions are welcome on [GitHub](https://github.com/germondai/vuei). The library is under MIT.
