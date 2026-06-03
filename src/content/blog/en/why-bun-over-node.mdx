@@ -1,0 +1,60 @@
+---
+title: 'Why I Replaced Node.js and npm With Bun Across All My Projects'
+description: 'Bun is a runtime, package manager, test runner, and bundler in one binary. After running it in production for months, here is an honest account of where it wins and where to watch out.'
+publishDate: 2025-09-15
+tags: ['bun', 'tooling', 'developer-experience', 'typescript', 'open-source']
+---
+
+I switched every project I actively develop to [Bun](https://bun.sh)-runtime, package manager, test runner, and all. This was not a reaction to a viral benchmark. It was a series of small decisions that accumulated until Node.js was the outlier on my machine.
+
+Here is what actually changed and what I learned.
+
+## The install speed is real
+
+The first obvious thing is package installation. `bun install` on a project with a large lockfile runs in a second or two. The same project with `npm install` or `pnpm install` takes fifteen to thirty seconds depending on cache state.
+
+This matters more than it sounds. It comes up in CI runs, in Docker builds, in onboarding someone new to a repo, and every time you switch branches and need to reconcile packages. Over a day of development it adds up to a meaningful amount of time not spent waiting.
+
+The speed comes from Bun's package manager being written in Zig, using system calls directly, and maintaining a global package cache that shares installed packages across projects rather than copying them each time.
+
+## TypeScript without the ceremony
+
+Bun runs TypeScript natively. No `ts-node`, no `tsx`, no compile step for scripts.
+
+```bash
+bun scripts/generate-icons.ts
+```
+
+That works. The TypeScript is executed directly. For the prebuild scripts in my blog-font generation, icon generation-this means the scripts are just TypeScript files that run like shell scripts, with full type safety and IDE support, without a build step.
+
+For application code, this also simplifies the development loop. The import-edit-run cycle has no compilation in the middle.
+
+## bun test
+
+Bun ships a test runner compatible with Jest's API. The same `describe`, `it`, `expect`, `beforeEach` structure works. Migration from Jest is usually mechanical.
+
+The runner is fast because it runs in Bun and because it parallelizes by default. A test suite that took 8 seconds in Jest runs in under 2 in Bun.
+
+There is no plugin ecosystem as deep as Jest's, and some advanced matchers need workarounds. For most projects, what ships with Bun is sufficient.
+
+## The package manager interop story
+
+Bun reads `package.json` exactly as npm does. It understands workspaces in the same format. It generates a `bun.lockb` lockfile instead of `package-lock.json`, but you can also use `--frozen-lockfile` in CI the same way.
+
+The one behavioral difference worth knowing: Bun is stricter about peer dependency resolution by default. Projects that had quietly wrong peer dependencies under npm sometimes surface warnings or errors under Bun. Those are real problems-Bun just reports them instead of silently guessing.
+
+## Where Node.js still matters
+
+Bun's Node.js compatibility is very high but not complete. Most npm packages work without modification. Some packages that use Node-specific internals-certain native addons, some database drivers-have compatibility quirks.
+
+If you are migrating an existing production system with a complex dependency tree, test compatibility before committing. For greenfield projects, I have not hit a wall.
+
+The ecosystem tooling also still assumes Node in some places. Some CI templates, Dockerfile examples, and deployment guides show Node commands by default. Substituting `bun` is usually straightforward, but it is an extra step.
+
+## The practical result
+
+Every project I own runs on Bun. Install times are fast enough that I stopped thinking about them. TypeScript scripts run without a build step. Tests run without waiting. The unified binary means one fewer category of "what version of this tool do I have installed."
+
+The migration is low-risk. Drop in Bun, update your scripts in `package.json` to use `bun` instead of `node` or `npm`, and run the test suite. Most of the time it works immediately.
+
+The [Bun docs](https://bun.sh/docs) are thorough. Start there if you want specifics on any of the APIs or compatibility notes.

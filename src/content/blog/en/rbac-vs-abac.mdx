@@ -1,0 +1,127 @@
+---
+title: 'RBAC vs ABAC: Choosing the Right Access Control Model'
+description: 'Role-based access control is simple and works well for most apps. Attribute-based access control gives you fine-grained control when roles alone are not enough. Here is how to decide.'
+publishDate: 2025-06-28
+tags: ['security', 'architecture', 'best-practices', 'backend']
+---
+
+Any app with more than one type of user needs to decide who can see and do what. RBAC (Role-Based Access Control) and ABAC (Attribute-Based Access Control) are the two dominant models. Same problem, different levels of granularity.
+
+## RBAC: roles first
+
+In RBAC, you define roles and assign permissions to those roles. Users get roles.
+
+```
+user → role → permissions
+```
+
+A simple example:
+
+```typescript
+type Role = 'admin' | 'editor' | 'viewer'
+
+const permissions: Record<Role, string[]> = {
+  admin: ['read', 'write', 'delete', 'manage_users'],
+  editor: ['read', 'write'],
+  viewer: ['read'],
+}
+
+function can(user: { role: Role }, action: string): boolean {
+  return permissions[user.role].includes(action)
+}
+```
+
+This is easy to reason about, easy to implement, and easy to audit. "Can this user delete posts?" is one lookup. Most dashboards, CMS platforms, and SaaS products with simple tier structures work fine with RBAC.
+
+**When RBAC works well:**
+- Users have clear, stable roles (admin, member, guest)
+- Permissions map cleanly to those roles
+- The permission rules do not depend on context
+
+**Where RBAC breaks down:**
+- "Users can edit their own posts, but not other people's posts"
+- "Managers can approve expenses under $5,000, but not above"
+- "Documents can only be accessed by users in the same department"
+
+Each of these requires knowing something beyond just the user's role: who owns the resource, what value is involved, what group the user belongs to. RBAC cannot express this cleanly without creating explosion of hyper-specific roles.
+
+## ABAC: attributes everywhere
+
+In ABAC, access decisions are made based on attributes-properties of the user, the resource being accessed, and the environment. There are no fixed roles. You write policies that evaluate these attributes at request time.
+
+```
+policy(user attributes + resource attributes + environment) → allow/deny
+```
+
+A concrete example:
+
+```typescript
+type User = { id: string; department: string; level: number }
+type Document = { ownerId: string; department: string; classification: 'public' | 'internal' | 'restricted' }
+
+function canAccess(user: User, doc: Document, action: 'read' | 'edit'): boolean {
+  // Anyone can read public docs
+  if (doc.classification === 'public' && action === 'read') return true
+
+  // Internal docs: same department only
+  if (doc.classification === 'internal' && user.department !== doc.department) return false
+
+  // Edit: must be the owner or senior (level >= 3)
+  if (action === 'edit') return doc.ownerId === user.id || user.level >= 3
+
+  // Restricted: senior in same department only
+  if (doc.classification === 'restricted') {
+    return user.department === doc.department && user.level >= 4
+  }
+
+  return false
+}
+```
+
+ABAC rules read almost like natural language. You can express nuanced policies that RBAC cannot represent without multiplying roles.
+
+**When ABAC is the right choice:**
+- Access rules depend on who owns the resource
+- Rules differ based on data values (amounts, dates, classification)
+- Users span organizations, departments, or tenants with different rules
+- You have compliance requirements that demand auditable fine-grained access logs
+
+## Side-by-side comparison
+
+| Factor | RBAC | ABAC |
+|--------|------|------|
+| Complexity to implement | Low | Medium–High |
+| Complexity to understand | Low | Medium |
+| Fine-grained control | Limited | Excellent |
+| Performance | Fast (role lookup) | Slower (policy evaluation) |
+| Audit trail | Per role | Per policy decision |
+| Good for | Simple apps, SaaS tiers | Enterprises, multi-tenant, compliance |
+| Scales as rules grow | Roles multiply | Policies stay semantic |
+
+## You do not have to pick just one
+
+The most pragmatic approach for most apps is RBAC with resource ownership checks layered on top.
+
+```typescript
+function can(user: User, action: string, resource?: { ownerId: string }): boolean {
+  // Role check first
+  if (!roleHasPermission(user.role, action)) return false
+
+  // Ownership check for write actions
+  if (resource && action !== 'read') {
+    return user.role === 'admin' || resource.ownerId === user.id
+  }
+
+  return true
+}
+```
+
+This handles 90% of real-world cases without the full complexity of a policy engine. Add ABAC when the rules genuinely require it.
+
+## What I use
+
+For personal projects and early-stage SaaS: RBAC with ownership checks. Simple, auditable, done in an afternoon.
+
+For multi-tenant systems or anything with compliance requirements: a proper ABAC policy engine. [Casbin](https://casbin.org) is solid for TypeScript-supports both models and is well-maintained.
+
+The trap is building RBAC and then bolting on ABAC requirements later. If your access rules already depend on resource attributes or organizational context, design for that from the start rather than painting yourself into a corner with roles.

@@ -1,0 +1,54 @@
+---
+title: 'Why I Keep Reaching for Nuxt Over Next.js and Every Other Meta-Framework'
+description: 'After building projects with Next.js, SvelteKit, and Astro, I keep coming back to Nuxt. The Vue 3 Composition API, the module ecosystem, and the developer experience add up to something hard to match.'
+publishDate: 2025-07-28
+tags: ['nuxt', 'vue', 'web-development', 'opinion']
+---
+
+Every frontend developer eventually has to pick a meta-framework and live with the consequences. I have shipped projects in Next.js, SvelteKit, and Astro. I use Astro for content-heavy static sites (this blog runs on it). But for full-stack web applications, I keep coming back to [Nuxt](https://nuxt.com).
+
+Here is what keeps pulling me back.
+
+## Vue 3 Composition API feels more natural
+
+React's hooks model is clever, but it has edges. The rules of hooks exist because React needs them, not because they make code easier to reason about. You cannot call a hook conditionally. You have to manage dependency arrays in `useEffect`. `useCallback` and `useMemo` become necessary once you care about performance.
+
+Vue 3's Composition API solves the same problems without those constraints. `ref` and `reactive` are straightforward. `watchEffect` and `watch` behave predictably. There is no mental overhead around when things re-render. The code reads like JavaScript.
+
+For someone who writes a lot of TypeScript, Vue's type inference is also excellent. Props, emits, and composables are all first-class TypeScript citizens without needing additional wrapper utilities.
+
+## File-based routing that behaves
+
+Nuxt's file-based routing works the way you expect. Files in `pages/` become routes. Nested directories become nested routes. Dynamic segments use brackets. Named layouts wrap pages automatically.
+
+Next.js does this too now with the App Router, but the App Router introduced enough new concepts (Server Components, `use client`, the distinction between async and non-async components) that it feels like learning a new framework on top of the old one. The mental overhead is real.
+
+Nuxt's routing is opinionated but not surprising. You can predict what the routes will be before running the app.
+
+## The module ecosystem
+
+The [Nuxt Modules](https://nuxt.com/modules) registry is one of the best things about the ecosystem. Modules install into the framework at build time and configure themselves. You add `@nuxtjs/i18n` to your config and internationalization is wired up. You add `@sidebase/nuxt-auth` and auth is handled. The pattern is consistent across modules.
+
+Next.js has a package ecosystem too, but packages do not integrate at the framework level the same way. You wire them in manually. That works, but the Nuxt approach reduces the surface area for misconfiguration.
+
+## Rendering flexibility without framework-level thinking
+
+Nuxt supports SSR, SSG, ISR (through Nitro), client-only, and hybrid per-route rendering from a single codebase. You declare the mode per page with `definePageMeta`. No need to restructure the project or split into separate apps when requirements change.
+
+`useAsyncData` and `useFetch` handle data fetching with SSR-aware hydration built in. The state is shared between server and client automatically. You do not have to think about whether something runs on the server or the client unless you need to.
+
+## Nuxt DevTools
+
+[Nuxt DevTools](https://devtools.nuxt.com) is a browser panel that shows you every page, component, composable, and module in your app in real time. You can inspect the route tree, visualize component relationships, check what modules are loaded, and see server logs without leaving the browser.
+
+It is the kind of tooling that makes debugging faster and onboarding new developers onto a project significantly easier.
+
+## Where other frameworks win
+
+Astro is better for static content sites where you want zero JavaScript by default and maximum Lighthouse scores with minimal effort. This blog is built on Astro for that reason.
+
+Next.js has a larger ecosystem of third-party tutorials, Stack Overflow answers, and community resources. If you are building a product that other people need to maintain without onboarding, the familiarity argument is real.
+
+SvelteKit is genuinely interesting and the Svelte syntax is the most ergonomic of the bunch. I reach for it less often because the ecosystem is smaller and Svelte's approach to reactivity is changing again in Svelte 5.
+
+For everything else, Nuxt is where I land.

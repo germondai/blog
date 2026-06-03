@@ -1,0 +1,88 @@
+---
+title: 'Turbo vs Moon: Picking a Monorepo Task Runner That Fits'
+description: 'Both tools solve the same caching and orchestration problem in monorepos. Here is where they differ, where each one wins, and how I think about choosing between them.'
+publishDate: 2026-02-14
+tags: ['tooling', 'monorepo', 'developer-experience', 'open-source']
+---
+
+Running tasks across a monorepo without wasting time on work you already did is the entire problem both [Turborepo](https://turbo.build/repo) and [Moonrepo](https://moonrepo.dev) solve. They just solve it differently, and the differences matter depending on what your monorepo actually looks like.
+
+## What both tools do
+
+Monorepos with many packages share a familiar pain: you change one package and need to rebuild, test, and typecheck not just that package but every other package that depends on it-while doing as little work as possible for packages that did not change.
+
+Both Turbo and Moon solve this with:
+
+- A local task cache keyed by file hashes. If nothing changed, the task output is restored from cache instead of rerun.
+- Remote caching so teammates and CI share the same cache.
+- Dependency-aware task ordering. `build` in package B runs after `build` in package A if B depends on A.
+
+These fundamentals are table stakes now. The differences show up in configuration philosophy, ecosystem assumptions, and how deep the tool wants to go.
+
+## Turborepo
+
+Turbo is built by Vercel and written in Rust. It integrates with the npm/yarn/pnpm workspace ecosystem you probably already have. Configuration lives in `turbo.json` at the repo root.
+
+```json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "lint": {}
+  }
+}
+```
+
+That `^build` syntax means "run `build` in all upstream dependencies first." That single convention handles most dependency ordering without explicit declaration.
+
+Turbo's scope is narrow on purpose. It orchestrates tasks. It does not manage which version of Node you use, which tools are installed, or how packages inside the repo relate beyond what is declared in `package.json`. If your workspace is already set up in a conventional way, Turbo slots in without restructuring anything.
+
+Remote caching is handled either through Vercel (free for personal use, paid at scale) or a self-hosted option.
+
+## Moonrepo
+
+Moon is a task runner and build system written in Rust that wants to own more of the monorepo workflow. It defines projects with `moon.yml` per-package and a workspace config in `.moon/workspace.yml`.
+
+```yaml
+# moon.yml in a package
+tasks:
+  build:
+    command: bun run build
+    deps:
+      - ^:build
+    inputs:
+      - src/**/*
+    outputs:
+      - dist
+  test:
+    command: bun test
+    deps:
+      - build
+```
+
+Moon tracks inputs explicitly, which means it knows exactly which files a task depends on and invalidates cache at a finer granularity than Turbo's file-hash-of-the-whole-package approach.
+
+The toolchain management is where Moon differentiates most. You declare which version of Node (or Bun, or Deno) a project requires, and Moon ensures it is installed. This solves a real problem in large monorepos where different projects legitimately need different runtime versions. Turbo does not do this at all.
+
+Moon also has a concept of project-level ownership, code owners, and tags that go beyond task orchestration into project governance.
+
+## Where each one wins
+
+**Turbo wins** when you have a conventional JavaScript workspace and want to add task caching without changing much. The configuration is minimal, the conventions match what most teams already do, and the learning curve is nearly flat. If your monorepo runs on npm/yarn/pnpm workspaces and you have standard `build`, `test`, `lint` scripts, Turbo works on day one.
+
+**Moon wins** when you need more control. Explicit input/output declarations, per-project toolchain versioning, and cross-language support (Moon handles Rust, Go, and other languages beyond JS) make it the better fit for heterogeneous repos or teams that want the tool to enforce consistency beyond just task caching.
+
+Moon's configuration is heavier. Each project has its own `moon.yml`, and the workspace config adds another layer. That investment pays off at scale. For a small monorepo, it can feel like overhead.
+
+## What I use
+
+For pure JavaScript/TypeScript monorepos where everything follows standard conventions, Turbo is my starting point. It stays out of the way and the caching just works.
+
+For projects where I need toolchain pinning or finer-grained control over what counts as a cache input, Moon is the right tool. The extra configuration is a cost worth paying when you need what it provides.
+
+Both are genuinely good tools. The choice is less about quality and more about how much of your workflow you want the tool to own.

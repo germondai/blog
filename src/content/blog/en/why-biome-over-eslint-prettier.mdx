@@ -1,0 +1,116 @@
+---
+title: 'Why I Replaced ESLint and Prettier With Biome (And Have Not Looked Back)'
+description: 'Two tools, two config files, two sets of conflicting rules, and a slow CI pipeline. Biome replaced all of that with one fast Rust-based tool. Here is why the switch was obvious in hindsight.'
+publishDate: 2026-01-09
+tags: ['tooling', 'developer-experience', 'open-source', 'typescript']
+---
+
+For years the standard JavaScript linting and formatting setup was: ESLint for linting, Prettier for formatting, and then a pile of config to make them not fight each other. It worked, but it was never pleasant.
+
+[Biome](https://biomejs.dev) replaced all of it for me in a single step.
+
+## The problem with ESLint plus Prettier
+
+Both tools are good at what they do individually. The problem is the combination.
+
+ESLint and Prettier both have opinions about code style. They conflict. You need `eslint-config-prettier` to disable ESLint's formatting rules so Prettier can handle them. You need `eslint-plugin-prettier` if you want Prettier violations to show up as ESLint errors. You maintain two config files, two sets of dependencies, and you update them on different schedules.
+
+The configuration files themselves are a problem. `.eslintrc.json` (or `.eslintrc.js`, or `eslint.config.mjs`, which is yet another format) plus `.prettierrc` plus `.prettierignore` plus possibly `prettier.config.js`. Each project accumulates slightly different versions of these files, and "copy from last project" causes drift.
+
+Speed is the other issue. ESLint on a medium-sized codebase takes several seconds. In a pre-commit hook, that is enough to make developers bypass it. In CI, it adds minutes across a month of PRs.
+
+## What Biome is
+
+[Biome](https://biomejs.dev) is a single Rust-based tool that does linting, formatting, and import sorting. One binary, one config file (`biome.json`), one command.
+
+It is fast in a way that changes behavior. A lint and format check on the entire source directory of a large project takes under 100 milliseconds. Pre-commit hooks finish before you notice them. CI steps that used to take 30 seconds take 2.
+
+My `biome.json` for a typical TypeScript project:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": { "noUnusedVariables": "error" },
+      "suspicious": { "noExplicitAny": "error" },
+      "style": {
+        "useConst": "error",
+        "useTemplate": "error",
+        "noNonNullAssertion": "warn"
+      },
+      "performance": {
+        "noImgElement": "off"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded"
+    }
+  },
+  "files": {
+    "includes": ["**", "!**/.astro", "!**/node_modules", "!**/dist", "!**/*.config.js", "!**/*.css"]
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.astro"],
+      "linter": {
+        "rules": {
+          "correctness": { "noUnusedImports": "off", "noUnusedVariables": "off" },
+          "suspicious": { "noExplicitAny": "off" }
+        }
+      }
+    }
+  ]
+}
+```
+
+No plugins, no extended configs, no version mismatches. The rules are built in. The `overrides` block relaxes strictness for `.astro` files where Astro's own compiler handles the type checking-no point fighting false positives there.
+
+## OXC: the next generation
+
+Worth knowing about: [OXC](https://oxc.rs) (Oxidation Compiler) is being built by some of the same Rust-ecosystem contributors who pushed JavaScript tooling forward. It includes a parser, linter, formatter, transformer, and bundler, all in Rust, with a focus on being even faster than Biome and compatible with existing ESLint rules.
+
+OXC is not yet at the point where it replaces Biome for daily use, but the trajectory is interesting. The [ESLint team](https://eslint.org/blog/2022/02/paying-contributors-and-more/) has publicly discussed rewriting core performance-sensitive parts in Rust. The pattern is clear: the tooling layer is moving to compiled languages because JavaScript-parsing JavaScript is a bottleneck.
+
+For now, Biome is the practical choice. The rule coverage is solid, the VS Code extension works well, and the speed is genuinely noticeable.
+
+## The migration
+
+For most TypeScript projects, migrating from ESLint and Prettier to Biome takes under an hour.
+
+1. Install Biome: `bun add -d @biomejs/biome`
+2. Initialize: `bunx biome init`
+3. Run the migration helper: `bunx biome migrate eslint --write` and `bunx biome migrate prettier --write` to translate existing rules
+4. Remove ESLint, Prettier, and their config files
+5. Update scripts in `package.json`
+
+The migration tool handles most rule translations automatically. Anything it cannot map it will tell you explicitly.
+
+## What I run in every project now
+
+```json
+{
+  "scripts": {
+    "lint": "biome check ./src",
+    "lint:fix": "biome check --write ./src",
+    "format": "biome format --write ./src"
+  }
+}
+```
+
+`lint` for CI. `lint:fix` locally to auto-fix everything in one pass. A pre-commit hook runs `lint:fix` before each commit so nothing dirty lands in the repo.
+
+One tool. One config file. Fast enough to not think about it.

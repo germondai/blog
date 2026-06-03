@@ -1,0 +1,106 @@
+---
+title: 'Nuxt + Nitro Type Inference: tRPC-like Safety Without the Setup'
+description: 'Nuxt auto-imports server route types into the client. You get end-to-end type safety between your API and your frontend with no extra library, no code generation, and no schema to maintain.'
+publishDate: 2025-08-19
+tags: ['nuxt', 'typescript', 'nitro', 'web-development', 'dx']
+---
+
+Write an API route on the server. Call it with `useFetch` or `$fetch` on the client. TypeScript knows the exact shape of the response-no tRPC, no code generation, no extra configuration.
+
+If you have used tRPC with React, Nuxt gives you the same thing with less setup. The difference is it just works without a separate router, adapter, and provider to wire up.
+
+## How it works
+
+Nuxt uses [Nitro](https://nitro.build) as its server engine. Nitro can infer the return type of each API route and expose that information to the Nuxt client layer.
+
+A server route in `server/api/posts.get.ts`:
+
+```typescript
+export default defineEventHandler(async () => {
+  const posts = await db.select().from(postsTable)
+  return posts
+})
+```
+
+On the client, `useFetch` automatically knows what this returns:
+
+```typescript
+// data is typed as Post[] - no type annotation needed
+const { data } = await useFetch('/api/posts')
+```
+
+TypeScript infers the return type directly from the handler. If you change the shape of what the route returns, TypeScript will flag every call site that now mismatches.
+
+## The mechanism
+
+Nuxt generates TypeScript declarations for all your server routes into `.nuxt/types/nitro.d.ts`. These declarations map route paths to their inferred response types. `useFetch` is typed to consume these declarations, so the return type of a `useFetch` call flows directly from the server handler's return type.
+
+No schema. No codegen step you have to remember to run. No separate client package to install. The types update when you save the file.
+
+## Typed route params and query
+
+The inference goes further. Handler parameters are typed too.
+
+```typescript
+// server/api/posts/[id].get.ts
+export default defineEventHandler(async (event) => {
+  const { id } = getRouterParams(event)  // typed as string
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, Number(id)),
+  })
+  if (!post) throw createError({ statusCode: 404 })
+  return post
+})
+```
+
+```typescript
+// client - data is Post | null
+const { data } = await useFetch(`/api/posts/${postId}`)
+```
+
+Query params, body parsing with `readBody<T>`, and headers all have typed helpers too.
+
+## Compared to tRPC
+
+tRPC solves the same problem for React/Next.js apps. You define procedures on the server, and the client calls them with full type safety. It is an excellent solution, especially for complex applications with many procedures.
+
+The Nuxt approach is more lightweight:
+
+| Aspect | tRPC | Nuxt + Nitro |
+|--------|------|-------------|
+| Setup | Router, adapter, provider | Nothing extra |
+| Client calls | `trpc.posts.query()` | `useFetch('/api/posts')` |
+| Type source | Exported router type | Auto-generated declarations |
+| REST compatibility | No (RPC only) | Yes (standard HTTP) |
+| External API calls | Requires wrapper | Plain fetch works |
+| Validation | Zod/Valibot required | Optional |
+
+For a Nuxt project, the built-in inference is the right default. You get type safety across the stack and your API stays a standard REST API that any client can call, not a tRPC-specific endpoint.
+
+## Adding validation
+
+The inference is inferred, not enforced. If you want runtime validation (which you should for external input), add it with a schema library.
+
+```typescript
+import { z } from 'zod'
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1),
+  content: z.string().min(10),
+})
+
+export default defineEventHandler(async (event) => {
+  const body = await readValidatedBody(event, CreatePostSchema.parse)
+  // body is typed as { title: string; content: string }
+  const post = await db.insert(posts).values(body).returning()
+  return post[0]
+})
+```
+
+`readValidatedBody` is a Nitro utility that validates and returns a typed body. The validated type flows through to the client automatically.
+
+## What this means in practice
+
+You write server code, call it from the client, TypeScript keeps them in sync. No runtime schema management, no extra tooling to maintain.
+
+It is less explicit than tRPC but also invisible-the types just work, and you only notice them when something changes on the server and the client immediately flags it.

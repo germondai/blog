@@ -1,0 +1,141 @@
+---
+title: 'Web Scraping in Practice: Puppeteer, Stealth, Proxies, and Cheerio'
+description: 'From basic HTML fetching to full headless browser automation with stealth plugins and rotating proxies-a practical guide to gathering data from the web without getting blocked.'
+publishDate: 2024-08-13
+tags: ['web-scraping', 'puppeteer', 'nodejs', 'automation', 'typescript']
+---
+
+Web scraping is one of those skills that sounds simple until you run it against a real site. A site returns HTML in your browser but sends a CAPTCHA to your script. Your IP gets blocked after 50 requests. The data you want is loaded by JavaScript after the page renders, so your plain HTTP fetch gets nothing useful.
+
+I have scraped a lot of sites for a lot of reasons: building datasets, monitoring price changes, archiving content, feeding data pipelines.
+
+## The simplest case: fetch and parse
+
+If a site serves its content as static HTML, you do not need a browser. Fetch the page and parse it.
+
+```typescript
+import * as cheerio from 'cheerio'
+
+const res = await fetch('https://example.com/products')
+const html = await res.text()
+const $ = cheerio.load(html)
+
+const titles: string[] = []
+$('.product-title').each((_, el) => {
+  titles.push($(el).text().trim())
+})
+```
+
+[Cheerio](https://cheerio.js.org) gives you a jQuery-like API for HTML. Fast, lightweight, no browser involved. This is the right starting point-only escalate to a headless browser when you need to.
+
+## When you need JavaScript execution: Puppeteer
+
+Modern sites render content in the browser using JavaScript. The HTML you fetch directly is often just a skeleton with no data in it. A headless browser actually runs the JavaScript and gives you what a user would see.
+
+[Puppeteer](https://pptr.dev) controls a headless Chrome instance programmatically.
+
+```typescript
+import puppeteer from 'puppeteer'
+
+const browser = await puppeteer.launch({ headless: true })
+const page = await browser.newPage()
+
+await page.goto('https://example.com', { waitUntil: 'networkidle2' })
+await page.waitForSelector('.product-list')
+
+const items = await page.evaluate(() => {
+  return Array.from(document.querySelectorAll('.product-title'))
+    .map(el => el.textContent?.trim())
+})
+
+await browser.close()
+```
+
+`waitUntil: 'networkidle2'` waits until the page has made no network requests for at least 500ms-usually enough for JavaScript to finish loading content.
+
+[Playwright](https://playwright.dev) is the modern alternative-better cross-browser support and a cleaner API. For new projects it is probably the better default now.
+
+## Getting blocked: why it happens
+
+Sites detect scrapers through several signals:
+
+- **Missing browser fingerprints**: a real browser sends dozens of headers and JavaScript APIs that a basic script does not. Sites check for things like `navigator.webdriver`, canvas fingerprints, and WebGL support.
+- **Request patterns**: 100 requests in 10 seconds from one IP is not human behavior.
+- **Missing cookies and session state**: humans accumulate cookies across a session; scripts often start fresh every time.
+
+## Stealth mode
+
+[puppeteer-extra](https://github.com/berstend/puppeteer-extra) is a wrapper that adds plugin support. The stealth plugin patches the headless Chrome instance to remove the signals that anti-bot systems look for.
+
+```typescript
+import puppeteer from 'puppeteer-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+
+puppeteer.use(StealthPlugin())
+
+const browser = await puppeteer.launch({ headless: true })
+```
+
+That single addition bypasses most basic bot detection. The stealth plugin patches `navigator.webdriver`, randomizes canvas fingerprints, mimics realistic plugin lists, and removes other tells.
+
+## Proxies and IP rotation
+
+Even with stealth, scraping at scale from a single IP triggers rate limits. The fix is rotating through different IP addresses.
+
+```typescript
+const proxies = [
+  'http://proxy1.example.com:8080',
+  'http://proxy2.example.com:8080',
+  'http://proxy3.example.com:8080',
+]
+
+const proxy = proxies[Math.floor(Math.random() * proxies.length)]
+
+const browser = await puppeteer.launch({
+  args: [`--proxy-server=${proxy}`],
+})
+```
+
+Proxy types matter:
+
+| Type | Speed | Anonymity | Cost |
+|------|-------|-----------|------|
+| Datacenter proxies | Fast | Low - easily detected | Cheap |
+| Residential proxies | Medium | High - real ISP IPs | Expensive |
+| Rotating residential | Medium | High | Most expensive |
+
+For most scraping, rotating residential proxies are worth the cost because datacenter IPs are blocked by default on many sites.
+
+## Handling rate limits gracefully
+
+Randomize your delays. A human does not click links at exactly 1-second intervals.
+
+```typescript
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+for (const url of urls) {
+  await page.goto(url)
+  // random delay between 2 and 6 seconds
+  await sleep(2000 + Math.random() * 4000)
+}
+```
+
+Also handle errors gracefully and retry with backoff rather than crashing the whole run when one request fails.
+
+## CORS is not a scraping blocker
+
+CORS is enforced by browsers, not servers. When you make a request from a server-side script, the server returns whatever it returns-CORS headers only stop browsers from reading cross-origin responses in client-side JavaScript. Your scraper is not a browser making cross-origin requests from a webpage. CORS is irrelevant.
+
+## Legal and ethical notes
+
+The technical ability to scrape a site does not mean you are authorized to do it. Check the site's `robots.txt`, terms of service, and applicable laws. Many sites explicitly prohibit scraping. Others provide official APIs for data access-use those when they exist.
+
+For building internal datasets, archiving, research, and price monitoring of publicly visible data, scraping is generally a solved problem. For anything involving authentication or user data, be much more careful.
+
+## What I reach for
+
+For static HTML: Cheerio + fetch.
+For JavaScript-rendered pages: Playwright or Puppeteer with the stealth plugin.
+For scale: rotating residential proxies, random delays, retry with backoff.
+
+The difference between scraping that works and scraping that keeps breaking is mostly just respecting the rate limits of whatever you are pulling from.

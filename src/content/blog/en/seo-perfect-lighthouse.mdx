@@ -1,0 +1,152 @@
+---
+title: 'SEO Done Right: 100/100 Lighthouse, Schema Markup, and Everything Else'
+description: 'A practical guide to everything that affects search ranking and crawlability: Core Web Vitals, Open Graph, Schema.org JSON-LD, hreflang, sitemaps, robots.txt, and how it all fits together.'
+publishDate: 2025-09-22
+tags: ['seo', 'web-development', 'performance', 'best-practices']
+---
+
+A perfect Lighthouse score is not a goal in itself. It is a side effect of building a site that loads fast, does not shift around while loading, and responds to interaction immediately. Search engines use these signals because users care about them.
+
+This is what I have learned building the SEO layer for this blog and the other projects in my stack.
+
+## Core Web Vitals: the three numbers that matter
+
+Google's ranking algorithm incorporates three performance metrics directly.
+
+**LCP (Largest Contentful Paint)** measures how long until the largest visible element has loaded. For most pages, that is a hero image or the main heading. Keep it under 2.5 seconds. The main levers: compress images, preload critical resources, avoid render-blocking scripts.
+
+**CLS (Cumulative Layout Shift)** measures how much the page jumps around while loading. Font loading is the most common culprit. Set explicit `width` and `height` on images. Use `font-display: optional` or match fallback font metrics to the loaded font so nothing shifts when it arrives.
+
+**INP (Interaction to Next Paint)** replaced FID and measures responsiveness to user input. Long JavaScript tasks are the enemy. Keep your main thread clear of work that blocks interaction.
+
+## The meta tag layer
+
+Every page needs a distinct `<title>` and `<meta name="description">`. Titles should be under 60 characters. Descriptions under 160. Neither should be duplicated across pages.
+
+```html
+<title>Building a Free Icon API for Developer Portfolios and READMEs</title>
+<meta name="description" content="A self-hosted API that generates tech stack icon strips via URL params. No account, no watermarks." />
+<link rel="canonical" href="https://blog.germondai.com/blog/building-germondai-icons" />
+```
+
+The canonical URL prevents duplicate content penalties when the same page is accessible from multiple URLs (with and without trailing slashes, with query params, etc.).
+
+## Open Graph
+
+Open Graph tags control how your page looks when shared on social platforms. At minimum:
+
+```html
+<meta property="og:title" content="..." />
+<meta property="og:description" content="..." />
+<meta property="og:image" content="https://..." />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://..." />
+<meta property="og:site_name" content="Germond's Blog" />
+```
+
+For articles, also add `article:published_time`, `article:modified_time`, and `article:tag`. For images: always include width and height to avoid the platform fetching the image just to find out its dimensions.
+
+## Twitter Cards
+
+Twitter/X has its own tag set that overlaps with OG but is not identical:
+
+```html
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="..." />
+<meta name="twitter:description" content="..." />
+<meta name="twitter:image" content="https://..." />
+<meta name="twitter:image:alt" content="..." />
+<meta name="twitter:creator" content="@germondai" />
+```
+
+The `twitter:image:alt` tag is both accessibility-correct and affects how the image is displayed.
+
+## Schema.org JSON-LD
+
+Structured data is machine-readable metadata that enables rich results in Google Search. The recommended format is JSON-LD in a `<script type="application/ld+json">` tag.
+
+For a blog, three schemas cover most ground:
+
+**WebSite** with a `potentialAction` SearchAction tells Google this site has a search feature and links it to search queries:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://blog.germondai.com/#website",
+  "name": "Germond's Blog",
+  "url": "https://blog.germondai.com",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://blog.germondai.com/blog?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+```
+
+**Person** establishes authorship and links the blog to your other profiles:
+
+```json
+{
+  "@type": "Person",
+  "@id": "https://blog.germondai.com/#person",
+  "name": "Germond",
+  "alternateName": "@germondai",
+  "url": "https://germondai.com",
+  "sameAs": [
+    "https://github.com/germondai",
+    "https://twitter.com/germondai"
+  ]
+}
+```
+
+**BlogPosting** on each article page tells Google it is looking at a structured article with a known author and publication date:
+
+```json
+{
+  "@type": "BlogPosting",
+  "headline": "...",
+  "datePublished": "2026-01-15T00:00:00Z",
+  "dateModified": "2026-01-15T00:00:00Z",
+  "author": { "@type": "Person", "name": "Germond" },
+  "mainEntityOfPage": { "@type": "WebPage", "@id": "https://..." }
+}
+```
+
+**BreadcrumbList** on article pages adds breadcrumb navigation to Google's search result snippets.
+
+## Sitemap and robots.txt
+
+The sitemap tells search engines every URL on your site and when it was last updated. For a multi-language site, include all locales. For Astro, `@astrojs/sitemap` generates it automatically. For Next.js and Nuxt, `@nuxtjs/sitemap` does the same.
+
+The `robots.txt` tells crawlers what they can and cannot access:
+
+```
+User-agent: *
+Allow: /
+Sitemap: https://blog.germondai.com/sitemap-index.xml
+```
+
+Keep it simple unless you have specific sections to block.
+
+## hreflang for international sites
+
+For sites in multiple languages, `hreflang` links tell search engines which pages are translations of each other:
+
+```html
+<link rel="alternate" hreflang="en" href="https://blog.germondai.com/blog/post" />
+<link rel="alternate" hreflang="cs" href="https://blog.germondai.com/cs/blog/post" />
+<link rel="alternate" hreflang="x-default" href="https://blog.germondai.com/blog/post" />
+```
+
+The `x-default` entry points to the version shown when no locale match is found.
+
+## Self-hosted fonts and CLS
+
+Loading fonts from Google CDN adds a network request and contributes to layout shift. The fix is to download the fonts at build time and serve them yourself, with `@font-face` fallback metrics that make the system font match the dimensions of the loaded font. No shift, no tracking, faster load.
+
+## The payoff
+
+Getting all of this right is not glamorous work, but the result is consistent: fast pages, clean search previews, structured data in Google's knowledge graph, and rankings that hold because the fundamentals are solid.

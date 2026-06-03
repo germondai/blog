@@ -1,0 +1,132 @@
+---
+title: 'WebSockets vs SSE vs Socket.IO: Real-Time Web in Practice'
+description: 'Three ways to push data from server to client in real time. Here is what each one does, where each one fits, and how bun.ws changes the performance picture for WebSocket servers.'
+publishDate: 2025-10-06
+tags: ['websockets', 'real-time', 'backend', 'architecture', 'bun']
+---
+
+Live chat, collaborative editing, dashboards that update without refreshing-all of these need the server to push data to the client. There are three main ways to do it, and they are not interchangeable.
+
+## How each one works
+
+Think of a normal web request like a phone call where you speak, then hang up, and wait for the other person to call you back. That is HTTP. Real-time needs something more like keeping the line open.
+
+**Server-Sent Events (SSE)** keeps the connection open so the server can send messages whenever it wants. The client cannot send messages back through the same connection. One-way, server to client.
+
+**WebSockets** is a full two-way connection. Once established, either side can send a message to the other at any time, with low latency. This is what chat apps, multiplayer games, and collaborative tools use.
+
+**Socket.IO** is a library built on top of WebSockets that adds auto-reconnection, rooms, event naming, and fallbacks. It solves real problems, but it adds weight and has its own protocol layer on top of WebSockets.
+
+## Side-by-side
+
+| Feature | SSE | WebSockets | Socket.IO |
+|---------|-----|-----------|-----------|
+| Direction | Server → Client only | Bidirectional | Bidirectional |
+| Protocol | HTTP | WS/WSS | Custom (on top of WS) |
+| Auto-reconnect | Built into browser | Manual | Built in |
+| Rooms/namespaces | No | Manual | Built in |
+| Browser support | Excellent | Excellent | Requires client lib |
+| Proxy/firewall issues | Rarely | Occasionally | Handles fallbacks |
+| Overhead | Low | Low | Higher |
+| Best for | Feeds, notifications | Chat, games, collab | Complex real-time apps |
+
+## When to use SSE
+
+SSE is underrated. If your use case is server-to-client only-live activity feeds, progress updates, AI streaming responses, notifications-SSE is simpler than WebSockets and works with standard HTTP/2. There is no handshake negotiation, no extra protocol, and the browser reconnects automatically if the connection drops.
+
+```typescript
+// Nitro / Nuxt server route
+export default defineEventHandler(async (event) => {
+  const stream = createEventStream(event)
+
+  const interval = setInterval(async () => {
+    await stream.push({ data: JSON.stringify({ time: Date.now() }) })
+  }, 1000)
+
+  stream.onClosed(() => clearInterval(interval))
+
+  return stream.send()
+})
+```
+
+```typescript
+// Client
+const source = new EventSource('/api/stream')
+source.onmessage = (e) => console.log(JSON.parse(e.data))
+```
+
+That is a live clock update. No library. No WebSocket setup. Works through HTTP/2 multiplexing, so multiple SSE connections to the same server do not open multiple TCP connections.
+
+## When to use WebSockets
+
+Anything bidirectional: chat where the client sends messages, collaborative editing where multiple users change the same document, multiplayer games where player position flows both ways.
+
+```typescript
+// Bun WebSocket server
+const server = Bun.serve({
+  port: 3000,
+  websocket: {
+    open(ws) {
+      ws.subscribe('chat')
+    },
+    message(ws, message) {
+      server.publish('chat', message)
+    },
+    close(ws) {
+      ws.unsubscribe('chat')
+    },
+  },
+  fetch(req, server) {
+    if (server.upgrade(req)) return
+    return new Response('Not a WebSocket request')
+  },
+})
+```
+
+## bun.ws vs the Node.js ecosystem
+
+If you are running a WebSocket server on Bun, use `Bun.serve`'s native WebSocket support instead of the `ws` npm package. The difference is substantial.
+
+[Bun.serve](https://bun.sh/docs/api/websockets) handles WebSocket connections natively in the runtime, written in Zig. The `ws` npm package adds an abstraction layer on top of Node's net module, in JavaScript.
+
+Benchmarks from the Bun team show native bun.ws handling over 200,000 messages per second on modest hardware-several times more than the `ws` package under Node. For chat apps, collaboration servers, or anything where many connections send frequent messages, this matters.
+
+```
+Performance (messages/sec, rough comparison):
+┌─────────────────┬──────────────────┐
+│ bun.serve ws    │  ~200,000+/sec   │
+│ ws (Node.js)    │  ~40,000–60,000  │
+│ Socket.IO       │  ~30,000–45,000  │
+└─────────────────┴──────────────────┘
+```
+
+Socket.IO adds a protocol overhead layer, which is why it is slower, but it gives you rooms, namespaces, and automatic reconnection out of the box. Whether that trade-off is worth it depends on whether you need those features.
+
+## Reconnection and reliability
+
+Browser WebSocket connections drop when networks change-mobile handoffs, laptop sleep/wake, brief WiFi interruptions. Handle this.
+
+```typescript
+// Client-side reconnection
+function connect() {
+  const ws = new WebSocket('wss://example.com/ws')
+
+  ws.onclose = () => {
+    setTimeout(connect, 1000 + Math.random() * 2000)
+  }
+
+  return ws
+}
+```
+
+Exponential backoff is better for production: start at 1 second, double on each failure, cap at 30 seconds. Socket.IO does this for you; native WebSockets need it implemented manually.
+
+## What I reach for
+
+**SSE** for live feeds, AI response streaming, progress bars, notifications-anything server-to-client. No client library needed, works through HTTP/2.
+
+**Native WebSockets with bun.ws** for chat, real-time collaboration, multiplayer-anything bidirectional where throughput matters.
+
+**Socket.IO** rarely these days. Useful when you need rooms and namespaces out of the box, but the extra overhead and client bundle are harder to justify when Bun's native WS is this fast.
+
+SSE handles more use cases than most people give it credit for. Reach for WebSockets only when you genuinely need the client to send messages back.
