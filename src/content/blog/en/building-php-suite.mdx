@@ -1,0 +1,55 @@
+---
+title: 'My PHP Development Toolkit: Framework, API, and Starter Templates'
+description: 'Three PHP repositories I built to stop repeating the same setup for every new project. A full-stack MVC framework, a standalone REST API template, and a lightweight no-framework starter.'
+publishDate: 2023-10-14
+tags: ['php', 'open-source', 'api', 'backend']
+---
+
+Every PHP project used to start the same way. Set up routing. Wire in authentication. Connect the database. Configure the environment. Write the same boilerplate that every other project needed before it could do anything interesting.
+
+I got tired of that. These three repositories are my answer.
+
+## php-framework: Full-Stack MVC
+
+[php-framework](https://github.com/germondai/php-framework) is a complete full-stack starter that handles both the frontend and backend from one project. It pairs a PHP MVC backend with a Vite-bundled frontend, which means you get hot module replacement during development and an optimized build for production.
+
+On the backend: a router, controllers, Doctrine ORM for database abstraction, and JWT-based authentication baked in. The model layer handles user sessions and media management including upload, optimization, resizing, and format conversion.
+
+On the frontend: [Blade](https://laravel.com/docs/blade) templating with HMR support, TypeScript, SCSS, and TailwindCSS. The whole frontend pipeline runs through Vite, which means the development experience is fast and the production output is optimized.
+
+The project structure is:
+
+```
+app/        controllers, entities, models, views
+config/     application configuration
+migrations/ Doctrine database migrations
+public/     web root, dist assets
+src/        source assets and utilities
+```
+
+Install with Composer and pnpm, configure `.env`, and you are running.
+
+## php-api: Standalone REST API
+
+[php-api](https://github.com/germondai/php-api) strips out the frontend entirely and focuses on building a clean API. The same Doctrine ORM, JWT authentication, and media handling capabilities are there, but the structure is optimized for backend-only use: feeding a separate frontend, a mobile app, or another service.
+
+It ships with a pre-built User entity and a Media entity connected through a relationship, giving you a real starting point rather than an empty project. Nette Database is included for when you want to write queries directly rather than going through the ORM.
+
+## php-starter: Minimal No-Framework Starter
+
+[php-starter](https://github.com/germondai/php-starter) is the smallest of the three. No MVC, no ORM, no heavy abstractions. Just a sensible project structure with routing security, a JWT helper, Doctrine and Nette Database available if you need them, and a TailwindCSS build pipeline.
+
+It is the right choice when you want to write PHP without committing to a framework's opinions, but you also do not want to manually set up file security and environment loading every single time.
+
+## What they share
+
+All three use:
+- **Doctrine** for ORM and database migrations
+- **JWT** for authentication
+- **Nette Database** for direct query access
+- **`.env` configuration** for credentials and settings
+- **MIT license**
+
+The idea was a progression. php-starter for small projects. php-api for backend services. php-framework for full applications where you want the frontend bundled in the same repository.
+
+All three are on [GitHub](https://github.com/germondai) under MIT.

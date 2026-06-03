@@ -1,0 +1,74 @@
+---
+title: 'Three Prebuild Scripts That Make Every Project Better'
+description: 'Automated font downloading with CLS-safe fallbacks, favicon and PWA icon generation from a single image URL, and OG image rendering at build time. Three scripts I now use across all my projects.'
+publishDate: 2025-12-22
+tags: ['astro', 'open-source', 'performance', 'seo', 'tooling']
+---
+
+Some problems come up in every project. You need self-hosted fonts. You need a favicon. You need an Open Graph image for when the page gets shared. These are solved problems, but they still take time to set up correctly every time.
+
+I wrote three prebuild scripts that handle all of this automatically. They run before the build, they are fast, and once they are set up they require no maintenance.
+
+## Font downloading with CLS-safe fallbacks
+
+Google Fonts is the easy choice for typography: huge selection, zero setup. The problems come later. Every visitor's browser makes a request to Google's servers, which adds latency, triggers a privacy concern in GDPR contexts, and contributes to layout shift while the font loads.
+
+The font script solves all three at once.
+
+```bash
+bun scripts/generate-font.ts
+```
+
+It reads the configured font name, fetches the Google Fonts CSS with a browser-like User-Agent to get the `.woff2` URLs, downloads every weight and variant to `public/fonts/`, and writes a local `font.css` that points at those files.
+
+The part that eliminates layout shift is the fallback metrics. Each font generates an `@font-face` block with `ascent-override`, `descent-override`, `line-gap-override`, and `size-adjust` values that make the fallback system font (Arial) match the dimensions of the loaded font. When the custom font swaps in, nothing moves.
+
+This is the same approach that [fontaine](https://github.com/unjs/fontaine) from the UnJS team uses. The metrics are pre-computed per font family so they apply accurately without any runtime measurement.
+
+## Icon generation from a single image URL
+
+A production web app needs multiple icon sizes: a 32x32 favicon for browser tabs, a 180x180 Apple touch icon for iOS home screens, a 192x192 icon for Android PWA, and a 512x512 icon for splash screens.
+
+Maintaining four separate image files is annoying. The icon script takes a single avatar URL and generates all of them:
+
+```bash
+bun scripts/generate-icons.ts
+```
+
+It downloads the source image, resizes it to each target dimension using [sharp](https://sharp.pixelplumbing.com), and writes WebP files to `public/`. The output is:
+
+- `public/icon.webp` (32x32, browser tab favicon)
+- `public/apple-touch-icon.webp` (180x180, iOS)
+- `public/icon-192.webp` (192x192, Android PWA)
+- `public/icon-512.webp` (512x512, PWA splash)
+
+If no avatar URL is configured, the script generates a themed circle using the project's accent color and background color. The result is a branded icon that matches the site's visual identity without needing a custom image.
+
+## OG image generation: two approaches
+
+Open Graph images are the previews that appear when a URL is shared on Twitter/X, Slack, LinkedIn, or any other platform. Without one, you get a blank card or a random screenshot. With a good one, you get a branded preview that makes people want to click.
+
+There are two main approaches to generating them at build time.
+
+**Satori** is a library from Vercel that renders React component trees to SVG, which then gets converted to PNG. It runs in Node.js/Bun and works well for simple layouts. The output is sharp and the API is familiar if you already think in React. The limitation is that complex layouts can be tricky to debug since you are writing HTML-like JSX that renders differently from a browser.
+
+**Takumi** is a Rust-based renderer used in my [@germondai/links](https://github.com/germondai/links) project. It is faster than JavaScript-based options and produces consistent output. In Next.js projects, it integrates with the `opengraph-image.tsx` convention.
+
+For this blog, OG images are static WebP files served from `public/`. For the links project, they are rendered at build time using Takumi to produce a branded card with the profile gradient, avatar, name, handle, bio, and accent bars.
+
+## Running them automatically
+
+In `package.json`, these scripts chain together as a `prebuild` step:
+
+```json
+{
+  "scripts": {
+    "prebuild": "bun scripts/generate-icons.ts && bun scripts/generate-font.ts",
+    "build": "astro build"
+  }
+}
+```
+
+When you run `bun run build`, the icons and fonts are generated first, then the site builds with everything in place. No manual steps, no files to commit, no drift between environments.
+
+All three scripts are part of the [@germondai/blog](https://github.com/germondai/blog) project and can be adapted for any static site setup.

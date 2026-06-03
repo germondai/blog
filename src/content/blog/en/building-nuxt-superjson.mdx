@@ -1,0 +1,59 @@
+---
+title: 'nuxt-superjson: Keeping Complex Types Alive Across Your API'
+description: 'JavaScript serialization silently drops Date objects, Sets, Maps, and more. nuxt-superjson is a Nuxt module that wires SuperJSON into your API endpoints so complex types survive the round trip.'
+publishDate: 2025-09-01
+tags: ['nuxt', 'typescript', 'open-source', 'api']
+---
+
+There is a subtle bug that bites almost every Nuxt developer eventually. You send a `Date` object from your server. It arrives at the client as a string. You did not notice it change, and now you have to remember to call `new Date()` on every date you receive from the API.
+
+The root cause is `JSON.stringify`. Standard JSON does not know what a `Date` is. It just serializes it to an ISO string and moves on. The same thing happens with `Set`, `Map`, `BigInt`, `undefined`, `Infinity`, and several other JavaScript types that do not survive a JSON round trip.
+
+[nuxt-superjson](https://github.com/germondai/nuxt-superjson) is a Nuxt module that wires [SuperJSON](https://github.com/blitz-js/superjson) into your API endpoints so this problem goes away.
+
+## How it works
+
+SuperJSON is a drop-in replacement for JSON that preserves type information. A `Date` goes in as a `Date` and comes out as a `Date`. A `Set` stays a `Set`. The serialization format includes a type annotation alongside the data, and the deserialization step uses it to reconstruct the original value.
+
+The module exposes four tools:
+
+**`toSuperJSON`**: serialize a response on the server side. Use it in your API route handlers:
+
+```typescript
+export default defineEventHandler((event) => {
+  return toSuperJSON({
+    createdAt: new Date(),
+    tags: new Set(['typescript', 'nuxt']),
+  })
+})
+```
+
+**`fromSuperJSON`**: deserialize a response on the client side, reconstructing original types.
+
+**`$superFetch`**: a drop-in replacement for `$fetch` that automatically deserializes SuperJSON responses.
+
+**`useSuperFetch`**: the composable version for use inside Vue components.
+
+## Why this matters
+
+The problem is subtle enough that many teams do not notice it until a bug report comes in from production. A date comparison fails. A set operation does not work. The fix is usually "convert everything manually everywhere," which is the kind of solution that creates its own problems over time.
+
+With nuxt-superjson, the serialization layer handles it. Your types are what you declared them to be, on both sides of the API.
+
+## Installation
+
+```bash
+bun add @germondai/nuxt-superjson
+```
+
+Then add it to your `nuxt.config.ts`:
+
+```typescript
+export default defineNuxtConfig({
+  modules: ['@germondai/nuxt-superjson'],
+})
+```
+
+That is it. The `toSuperJSON`, `fromSuperJSON`, `$superFetch`, and `useSuperFetch` utilities are available automatically.
+
+Source is on [GitHub](https://github.com/germondai/nuxt-superjson) under MIT.

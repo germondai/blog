@@ -1,0 +1,51 @@
+---
+title: 'Building a Self-Hosted Blog Engine With Astro 6'
+description: 'This blog is its own open-source project. One config file, 15 themes, 26 languages, zero JavaScript by default, perfect Lighthouse scores, and Docker-ready. Here is how it works.'
+publishDate: 2026-06-04
+tags: ['astro', 'open-source', 'blog', 'self-hosted']
+---
+
+Most blogging platforms ask you to work inside their constraints. The editor they provide, the themes they offer, the URL structure they impose. When you want to do something they did not anticipate, you hit a wall.
+
+This blog is different. It is an open-source project called [@germondai/blog](https://github.com/germondai/blog), and every page you are reading right now is generated from it. Fork it, edit one TypeScript file, deploy anywhere.
+
+## One config file
+
+Everything meaningful lives in `blog.config.ts`. Author name, avatar, bio, social links, theme, font, effects, SEO settings. The shape of the blog follows from what you put there. TypeScript catches typos at build time so you never deploy a config mistake.
+
+## Themes and effects
+
+There are 15 built-in themes with complete gradient, accent, and animation palettes. The same three CSS-only effects from my other projects run here too: slow beam sweeps, floating particles, and a click-triggered lens flare. They can each be toggled on or off per-project.
+
+## Zero JavaScript by default
+
+The blog is built on [Astro 6](https://astro.build) with static output. No JavaScript ships to the browser unless a specific component needs it. The only interactive island is the lens flare effect, which loads when the browser is idle. Everything else is pure HTML and CSS.
+
+The result is consistently perfect Core Web Vitals scores. Fast first paint, no layout shift, no interaction blocking.
+
+## 26 languages
+
+The i18n system supports 26 language codes out of the box, from English and Czech to Japanese and Arabic. But you do not configure which languages are active. The build scans your content directory and generates pages for every locale that has at least one post. Add a Czech post and Czech routes appear automatically. Remove all of them and they disappear.
+
+All UI strings, including aria labels and lightbox hints, are translated for every language.
+
+## SEO baked in
+
+Every page gets canonical URLs, hreflang alternates, Open Graph tags, Twitter Cards, and structured JSON-LD data covering WebSite, Person, and BlogPosting schema. The sitemap covers all locales. The robots.txt is pre-configured.
+
+## Self-hosted fonts
+
+The blog uses the same font system as my other projects. A prebuild script downloads your chosen font from Google Fonts at build time, stores it locally, and generates the CSS with CLS-safe fallback metrics. Visitors never connect to Google's CDN.
+
+## Running it yourself
+
+```bash
+git clone https://github.com/germondai/blog
+cd blog
+cp blog.config.example.ts blog.config.ts
+bun dev
+```
+
+For production, a multi-stage Docker build produces a static site served by nginx. The same container works on any VPS, Vercel, or Netlify.
+
+The source is on [GitHub](https://github.com/germondai/blog) under AGPL-3.0.
