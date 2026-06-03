@@ -1,0 +1,44 @@
+---
+title: 'Topiqu: Building a Blogging Platform Where AI Does the Heavy Lifting'
+description: 'Topiqu is a full-stack blogging platform with an AI writing assistant, a rich editor, custom domains, and Stripe billing. Here is how and why I built it.'
+publishDate: 2025-11-12
+tags: ['ai', 'blogging', 'saas', 'personal-projects', 'nuxt']
+---
+
+Writing is not the hard part of running a blog. Finding the time, getting past the blank page, making the post look good, publishing it to a domain that feels like yours. That is the hard part. Most tools solve one of those problems and ignore the rest.
+
+[Topiqu](https://topiqu.com) is my attempt to solve all of them at once.
+
+## A rich editor that does not get in the way
+
+The editor is built on [Tiptap](https://tiptap.dev), a highly composable rich-text framework. What that means in practice: you get a writing experience that feels close to a good word processor, not a developer's markdown textarea.
+
+Slash commands let you insert any block type: headings, images, polls, embeds, without breaking your flow. Autosave runs continuously in the background. Drafts are versioned. When you are ready to publish, the release flow is one click.
+
+## AI that helps when you are stuck
+
+Every post has an AI writing assistant built in. It can generate a full draft from a prompt, expand a section you have sketched out, rephrase something that does not read right, or suggest images that match the content. Token usage is metered per plan, so it is available to everyone without burning infrastructure costs on heavy users.
+
+The AI integration runs on [Grok from xAI](https://x.ai) via the Vercel AI SDK. The choice was practical: Grok is fast, has a strong context window, and handles structured creative tasks well.
+
+## Your blog, your domain
+
+Every site on Topiqu lives at its own subdomain by default. If you want your own domain (`blog.yourbrand.com`), you add a CNAME record and the platform handles the rest, including certificate provisioning. Multiple sites share the same account with isolated data and separate billing.
+
+This multi-tenant architecture is what makes Topiqu more than a personal blog tool. Agencies can run multiple client sites. Independent creators can have a professional home. Teams can publish under their own brand.
+
+## Real-time notifications
+
+An SSE (Server-Sent Events) notification system keeps readers and contributors updated in real time. New posts, comments, and mentions surface instantly without polling.
+
+## Built on a serious stack
+
+The full stack is Nuxt 4 on the front end, with PostgreSQL and Prisma for data. Access control is handled by [ZenStack](https://zenstack.dev), providing row-level security policies that enforce who can read and write what, directly at the data layer. File storage runs on AWS S3. Transactional email uses AWS SES with MJML templates.
+
+The subscription system is Stripe, with monthly and yearly billing cycles, plan upgrades, and one-off token top-ups for AI usage. Everything is webhook-driven so plan changes apply instantly.
+
+## Why I built it
+
+I wanted a platform that respects writers enough to give them a real tool, not a stripped-down editor with a "pro plan" that unlocks basic features. Topiqu starts with the full writing experience and charges for the infrastructure that makes scale possible.
+
+It is live at [topiqu.com](https://topiqu.com). If you write, it is worth trying.

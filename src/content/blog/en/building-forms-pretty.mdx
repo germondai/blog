@@ -1,0 +1,43 @@
+---
+title: 'Forms Pretty: One CSS File for Beautiful HTML Forms'
+description: 'Browser default form styles look terrible in every browser. Forms Pretty is a universal CSS stylesheet that makes any form look polished instantly, with no framework dependency and no configuration.'
+publishDate: 2024-09-16
+tags: ['css', 'open-source', 'forms', 'frontend']
+---
+
+Browser default form styles are famously bad. Inputs look different in every browser. Select dropdowns are almost impossible to style consistently. The gap between a design mockup and a real HTML form is something every frontend developer has had to close manually, repeatedly, across every project.
+
+[Forms Pretty](https://github.com/germondai/forms-pretty) is my solution to that. It is a single CSS file. Download it, link it, done.
+
+## What it does
+
+Forms Pretty styles all standard HTML form elements: text inputs, textareas, select dropdowns, checkboxes, radio buttons, and more. The styles are consistent across browsers, readable by default, and designed to complement rather than fight with the rest of your page.
+
+Required fields get an asterisk automatically. No JavaScript needed.
+
+The stylesheet is built with SCSS and TailwindCSS, then compiled with Vite into a single clean CSS file. You never need to install anything from npm or configure a build pipeline to use it. Just link the compiled file.
+
+```html
+<link rel="stylesheet" href="prettyForms.css" />
+```
+
+That is the full integration. Your forms will look better immediately.
+
+## Why a standalone file
+
+Most CSS libraries for forms are part of a larger system. They come bundled with a reset, a grid, typography rules, component classes. Including them means accepting all of that, or spending time stripping out what you do not need.
+
+Forms Pretty does one thing. It handles forms. If your project already has a design system, it slots in without fighting anything. If you are building something quick and do not want to set up a full CSS stack, it is still the right choice.
+
+## Using it in your project
+
+Download the latest CSS file from the [releases page](https://github.com/germondai/forms-pretty/releases) and link it in your HTML. No npm, no build step, no configuration. Works in any project, any framework, any technology stack.
+
+If you want to customize or contribute, the development setup uses pnpm:
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+Source is on [GitHub](https://github.com/germondai/forms-pretty) under MIT.
