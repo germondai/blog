@@ -1,0 +1,55 @@
+---
+title: 'Mój zestaw narzędzi PHP: Framework, API i szablony startowe'
+description: 'Trzy repozytoria PHP, które zbudowałem, żeby przestać powtarzać to samo konfigurowanie przy każdym nowym projekcie. Kompletny full-stack framework MVC, samodzielny szablon REST API i lekki starter bez frameworka.'
+publishDate: 2023-10-14
+tags: ['php', 'open-source', 'api', 'backend']
+---
+
+Każdy projekt PHP zaczynał się tak samo. Skonfigurować routing. Podpiąć uwierzytelnianie. Połączyć bazę danych. Skonfigurować środowisko. Napisać ten sam boilerplate, którego każdy inny projekt potrzebował, zanim mógł zrobić cokolwiek interesującego.
+
+Zmęczyłem się tym. Te trzy repozytoria to moja odpowiedź.
+
+## php-framework: Full-Stack MVC
+
+[php-framework](https://github.com/germondai/php-framework) to kompletny starter full-stack obsługujący zarówno frontend, jak i backend z jednego projektu. Łączy backend PHP MVC z frontendem spakowanym przez Vite, co oznacza hot module replacement podczas programowania i zoptymalizowany build dla produkcji.
+
+Na backendzie: router, kontrolery, Doctrine ORM do abstrakcji bazy danych i wbudowane uwierzytelnianie JWT. Warstwa modelu obsługuje sesje użytkowników i zarządzanie mediami, w tym przesyłanie, optymalizację, zmianę rozmiaru i konwersję formatu.
+
+Na froncie: szablonowanie [Blade](https://laravel.com/docs/blade) z obsługą HMR, TypeScript, SCSS i TailwindCSS. Cały pipeline frontendowy działa przez Vite, co oznacza szybkie doświadczenie deweloperskie i zoptymalizowany output produkcyjny.
+
+Struktura projektu:
+
+```
+app/        kontrolery, encje, modele, widoki
+config/     konfiguracja aplikacji
+migrations/ migracje bazy danych Doctrine
+public/     root webowy, zasoby dist
+src/        zasoby źródłowe i narzędzia
+```
+
+Zainstaluj z Composerem i pnpm, skonfiguruj `.env` i działasz.
+
+## php-api: Samodzielne REST API
+
+[php-api](https://github.com/germondai/php-api) całkowicie usuwa frontend i koncentruje się na budowaniu czystego API. Te same możliwości Doctrine ORM, uwierzytelniania JWT i zarządzania mediami są tam, ale struktura jest zoptymalizowana do użytku tylko backendowego: zasilanie osobnego frontendu, aplikacji mobilnej lub innego serwisu.
+
+Dostarczane z gotową encją User i encją Media połączoną przez relację, dając ci prawdziwy punkt startowy zamiast pustego projektu. Nette Database jest dołączone na wypadek, gdy chcesz pisać zapytania bezpośrednio zamiast używać ORM.
+
+## php-starter: Minimalistyczny Starter bez Frameworka
+
+[php-starter](https://github.com/germondai/php-starter) jest najmniejszy z trzech. Żadnego MVC, żadnego ORM, żadnych ciężkich abstrakcji. Tylko sensowna struktura projektu z zabezpieczeniem routingu, pomocnikiem JWT, dostępnymi Doctrine i Nette Database jeśli ich potrzebujesz, oraz pipeline kompilacji TailwindCSS.
+
+To właściwy wybór, gdy chcesz pisać PHP bez przyjmowania opinii frameworka, ale też nie chcesz ręcznie konfigurować bezpieczeństwa plików i ładowania środowiska za każdym razem.
+
+## Co mają wspólnego
+
+Wszystkie trzy używają:
+- **Doctrine** do ORM i migracji baz danych
+- **JWT** do uwierzytelniania
+- **Nette Database** do bezpośredniego dostępu do zapytań
+- **konfiguracji `.env`** do poświadczeń i ustawień
+- **licencji MIT**
+
+Pomysł polegał na progresji. php-starter dla małych projektów. php-api dla serwisów backendowych. php-framework dla pełnych aplikacji, gdzie chcesz frontend spakowany w tym samym repozytorium.
+
+Wszystkie trzy są na [GitHubie](https://github.com/germondai) na licencji MIT.

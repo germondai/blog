@@ -1,0 +1,74 @@
+---
+title: 'Trzy skrypty prebuild, które ulepszają każdy projekt'
+description: 'Automatyczne pobieranie czcionek z bezpiecznymi dla CLS fallbackami, generowanie faviconów i ikon PWA z jednego URL obrazu i renderowanie obrazów OG w czasie kompilacji. Trzy skrypty, których teraz używam we wszystkich swoich projektach.'
+publishDate: 2025-12-22
+tags: ['astro', 'open-source', 'performance', 'seo', 'tooling']
+---
+
+Niektóre problemy pojawiają się w każdym projekcie. Potrzebujesz self-hostowanych czcionek. Potrzebujesz favicona. Potrzebujesz obrazu Open Graph gdy strona jest udostępniana. To rozwiązane problemy, ale nadal zajmują czas, żeby za każdym razem skonfigurować je poprawnie.
+
+Napisałem trzy skrypty prebuild, które obsługują to wszystko automatycznie. Uruchamiają się przed buildem, są szybkie i raz skonfigurowane nie wymagają żadnej konserwacji.
+
+## Pobieranie czcionek z fallbackami bezpiecznymi dla CLS
+
+Google Fonts to łatwy wybór dla typografii: ogromny wybór, zero konfiguracji. Problemy pojawiają się później. Przeglądarka każdego odwiedzającego wysyła żądanie do serwerów Google, co dodaje opóźnienie, wywołuje obawy o prywatność w kontekście RODO i przyczynia się do przesunięcia układu podczas ładowania czcionki.
+
+Skrypt czcionek rozwiązuje wszystkie trzy naraz.
+
+```bash
+bun scripts/generate-font.ts
+```
+
+Odczytuje skonfigurowaną nazwę czcionki, pobiera CSS Google Fonts z User-Agentem podobnym do przeglądarki, aby uzyskać adresy URL `.woff2`, pobiera każdy wariant i grubość do `public/fonts/` i zapisuje lokalny `font.css` wskazujący na te pliki.
+
+Część eliminująca przesunięcie układu to metryki fallback. Każda czcionka generuje blok `@font-face` z wartościami `ascent-override`, `descent-override`, `line-gap-override` i `size-adjust`, które sprawiają, że systemowa czcionka rezerwowa (Arial) dopasowuje rozmiary do załadowanej czcionki. Gdy własna czcionka się podmienia, nic się nie przesuwa.
+
+To ten sam podejście, którego używa [fontaine](https://github.com/unjs/fontaine) z zespołu UnJS. Metryki są wstępnie obliczone dla każdej rodziny czcionek, więc stosują się dokładnie bez żadnych pomiarów w czasie działania.
+
+## Generowanie ikon z jednego URL obrazu
+
+Produkcyjna aplikacja internetowa potrzebuje wielu rozmiarów ikon: 32×32 favicon dla zakładek przeglądarki, 180×180 Apple touch icon dla ekranów głównych iOS, 192×192 ikona dla Android PWA i 512×512 ikona dla ekranów powitalnych.
+
+Zarządzanie czterema osobnymi plikami graficznymi jest uciążliwe. Skrypt ikon pobiera jeden URL awatara i generuje je wszystkie:
+
+```bash
+bun scripts/generate-icons.ts
+```
+
+Pobiera obraz źródłowy, zmienia jego rozmiar do każdego docelowego wymiaru używając [sharp](https://sharp.pixelplumbing.com) i zapisuje pliki WebP do `public/`. Output to:
+
+- `public/icon.webp` (32×32, favicon zakładki przeglądarki)
+- `public/apple-touch-icon.webp` (180×180, iOS)
+- `public/icon-192.webp` (192×192, Android PWA)
+- `public/icon-512.webp` (512×512, splash PWA)
+
+Jeśli nie ma skonfigurowanego URL awatara, skrypt generuje tematyczne koło używając koloru akcentu i koloru tła projektu. Wynikiem jest markowa ikona pasująca do wizualnej tożsamości strony bez potrzeby własnego obrazu.
+
+## Generowanie obrazów OG: dwa podejścia
+
+Obrazy Open Graph to podglądy pojawiające się, gdy URL jest udostępniany na Twitter/X, Slacku, LinkedIn lub innej platformie. Bez nich dostaniesz pustą kartę lub losowy zrzut ekranu. Z dobrym dostaniesz brandowany podgląd, który skłania ludzi do klikania.
+
+Istnieją dwa główne podejścia do ich generowania w czasie kompilacji.
+
+**Satori** to biblioteka od Vercela, która renderuje drzewa komponentów React do SVG, które następnie konwertuje się do PNG. Działa w Node.js/Bun i sprawdza się dobrze przy prostych układach. Output jest ostry, a API jest znajome jeśli myślisz w kategoriach React. Ograniczeniem jest to, że złożone układy mogą być trudne do debugowania, ponieważ piszesz JSX podobny do HTML, który renderuje się inaczej niż w przeglądarce.
+
+**Takumi** to renderer oparty na Ruście używany w moim projekcie [@germondai/links](https://github.com/germondai/links). Jest szybszy niż opcje oparte na JavaScript i produkuje spójny output. W projektach Next.js integruje się z konwencją `opengraph-image.tsx`.
+
+Dla tego bloga, obrazy OG to statyczne pliki WebP serwowane z `public/`. Dla projektu links, są renderowane w czasie kompilacji używając Takumi, żeby stworzyć brandowaną kartę z gradientem profilu, awatarem, imieniem, nickiem, bio i paskami akcentu.
+
+## Automatyczne uruchamianie
+
+W `package.json` te skrypty są łączone razem jako krok `prebuild`:
+
+```json
+{
+  "scripts": {
+    "prebuild": "bun scripts/generate-icons.ts && bun scripts/generate-font.ts",
+    "build": "astro build"
+  }
+}
+```
+
+Gdy uruchamiasz `bun run build`, ikony i czcionki są najpierw generowane, a potem strona buduje się ze wszystkim na miejscu. Żadnych ręcznych kroków, żadnych plików do commitowania, żadnego dryfu między środowiskami.
+
+Wszystkie trzy skrypty są częścią projektu [@germondai/blog](https://github.com/germondai/blog) i można je dostosować do dowolnej konfiguracji strony statycznej.

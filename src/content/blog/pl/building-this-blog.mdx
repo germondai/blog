@@ -1,0 +1,51 @@
+---
+title: 'Budowanie self-hosted silnika bloga z Astro 6'
+description: 'Ten blog jest własnym projektem open-source. Jeden plik konfiguracyjny, 15 motywów, 26 języków, zero JavaScriptu domyślnie, perfekcyjne wyniki Lighthouse i gotowy na Docker. Oto jak to działa.'
+publishDate: 2026-06-04
+tags: ['astro', 'open-source', 'blog', 'self-hosted']
+---
+
+Większość platform blogowych zmusza cię do pracy w ramach ich ograniczeń. Edytor, który zapewniają, motywy, które oferują, struktura URL, którą narzucają. Gdy chcesz zrobić coś, czego nie przewidzieli, trafiasz na ścianę.
+
+Ten blog jest inny. To projekt open-source o nazwie [@germondai/blog](https://github.com/germondai/blog) i każda strona, którą właśnie czytasz, jest z niego wygenerowana. Sforkuj go, edytuj jeden plik TypeScript, wdróż gdziekolwiek.
+
+## Jeden plik konfiguracyjny
+
+Wszystko, co ma znaczenie, żyje w `blog.config.ts`. Imię autora, awatar, bio, linki społecznościowe, motyw, czcionka, efekty, ustawienia SEO. Kształt bloga wynika z tego, co tam umieścisz. TypeScript wyłapuje literówki podczas kompilacji, więc nigdy nie wdrożysz błędu konfiguracji.
+
+## Motywy i efekty
+
+Dostępnych jest 15 wbudowanych motywów z kompletnymi paletami gradientów, akcentów i animacji. Te same trzy efekty tylko CSS z moich innych projektów działają tu też: powolne przejścia wiązek, unoszące się cząsteczki i efekt rozbłysku soczewki wyzwalany kliknięciem. Każdy z nich można włączyć lub wyłączyć per-projekt.
+
+## Zero JavaScriptu domyślnie
+
+Blog jest zbudowany na [Astro 6](https://astro.build) ze statycznym outputem. Żaden JavaScript nie jest wysyłany do przeglądarki, chyba że konkretny komponent go potrzebuje. Jedyną interaktywną wyspą jest efekt rozbłysku soczewki, który ładuje się gdy przeglądarka jest bezczynna. Wszystko inne to czysty HTML i CSS.
+
+Wynikiem są konsekwentnie perfekcyjne wyniki Core Web Vitals. Szybkie pierwsze malowanie, brak przesunięcia układu, brak blokowania interakcji.
+
+## 26 języków
+
+System i18n obsługuje 26 kodów językowych od razu po instalacji, od angielskiego i czeskiego po japoński i arabski. Ale nie konfigurujesz, które języki są aktywne. Build skanuje katalog z treścią i generuje strony dla każdego locale, który ma co najmniej jeden post. Dodaj post po polsku i polskie trasy pojawią się automatycznie. Usuń je wszystkie i znikną.
+
+Wszystkie ciągi UI, w tym etykiety aria i podpowiedzi lightboxa, są przetłumaczone dla każdego języka.
+
+## SEO wbudowane od podstaw
+
+Każda strona otrzymuje kanoniczne URL, alternatywy hreflang, tagi Open Graph, Twitter Cards i ustrukturyzowane dane JSON-LD obejmujące schematy WebSite, Person i BlogPosting. Sitemap obejmuje wszystkie lokale. Robots.txt jest wstępnie skonfigurowany.
+
+## Self-hostowane czcionki
+
+Blog używa tego samego systemu czcionek co moje inne projekty. Skrypt prebuild pobiera wybraną czcionkę z Google Fonts podczas kompilacji, przechowuje ją lokalnie i generuje CSS z metrykami fallback bezpiecznymi dla CLS. Odwiedzający nigdy nie łączą się z CDN Google.
+
+## Uruchamianie własnej instancji
+
+```bash
+git clone https://github.com/germondai/blog
+cd blog
+cp blog.config.example.ts blog.config.ts
+bun dev
+```
+
+Do produkcji, wieloetapowy Docker build produkuje statyczną stronę serwowaną przez nginx. Ten sam kontener działa na dowolnym VPS, Vercelu lub Netlify.
+
+Kod źródłowy jest na [GitHubie](https://github.com/germondai/blog) na licencji AGPL-3.0.
