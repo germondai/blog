@@ -1,0 +1,89 @@
+---
+title: 'Elysia a Eden: Kompletná typová bezpečnosť od začiatku do konca pre Bun'
+description: 'Elysia je Bun-natívny webový framework s výkonovými číslami, ktoré robia väčšinu Node.js frameworkov pomalými. Eden ti dáva tRPC-style klientskú typovú bezpečnosť s menšou konfiguráciou – a môžeš priniesť Zod, Valibot alebo akýkoľvek Standard Schema validátor.'
+publishDate: 2025-10-30
+tags: ['bun', 'elysia', 'typescript', 'web-development', 'performance']
+---
+
+[Elysia](https://elysiajs.com) je TypeScript webový framework postavený špeciálne pre Bun. Je rýchly spôsobom, ktorý sa líši od "rýchly pre JavaScript framework" – benchmarkové čísla ho stavajú pred Fastify, Hono a väčšinu ostatných Node.js alternatív o výrazný rozdiel, pretože nebeží na Node.js.
+
+[Eden](https://elysiajs.com/eden/overview) je sprievodná klientská knižnica Elysia. Dáva ti kompletnú typovú bezpečnosť od konca ku koncu medzi tvojím Elysia serverom a akýmkoľvek TypeScript klientom – podobne ako to, čo tRPC robí pre Node.js ekosystém, ale s podstatne menším nastavením.
+
+## Minimálny Elysia server
+
+```typescript
+import { Elysia } from 'elysia'
+import { z } from 'zod'
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1),
+  content: z.string(),
+})
+
+const app = new Elysia()
+  .get('/hello', () => 'Hello from Elysia')
+  .post('/posts', ({ body }) => createPost(body), {
+    body: CreatePostSchema,
+  })
+  .listen(3000)
+
+export type App = typeof app
+```
+
+Elysia podporuje validátory [Standard Schema](https://standardschema.dev) – Zod, Valibot, ArkType a TypeBox všetky fungujú. Exportovaný `typeof app` je to, čo Eden používa na odvodzovanie typov na klientovi. Žiadny samostatný súbor typov, žiadne generovanie kódu.
+
+## Eden na klientovi
+
+```typescript
+import { treaty } from '@elysiajs/eden'
+import type { App } from './server'
+
+const api = treaty<App>('http://localhost:3000')
+
+// Plne typizované – nie sú potrebné žiadne typové anotácie
+const { data, error } = await api.hello.get()
+const { data: post } = await api.posts.post({
+  title: 'Hello World',
+  content: 'Môj prvý príspevok',
+})
+```
+
+`post` je typizovaný ako to, čo tvoj server vracia. `title` a `content` sú validované voči schéme – TypeScript ohlási chybu, ak vynecháš povinné pole alebo odovzdáš zlý typ. Typy prichádzajú priamo z `typeof app` servera, bez samostatného súboru schémy na samostatné udržiavanie a bez kroku generovania kódu na spustenie.
+
+## Ako sa to porovnáva s tRPC
+
+| Aspekt | tRPC | Elysia + Eden |
+|--------|------|---------------|
+| Runtime | Node.js / Edge | Bun (primárne) |
+| Nastavenie | Router + adaptér + provider | Stačí exportovať `typeof app` |
+| Klientské volania | `trpc.posts.create.mutate({})` | `api.posts.post({})` |
+| Validácia | Zod/Valibot (externý) | Zod, Valibot, ArkType, TypeBox |
+| REST-kompatibilný | Nie | Áno |
+| Výkon | Node-viazaný | Bun-natívny |
+| Vyspelosť ekosystému | Veľmi vyspelý | Rýchlo rastie |
+
+tRPC má väčší ekosystém a viac komunitných zdrojov, čo záleží pre komplexné projekty alebo tímy neznalé Elysia. Eden je jednoduchší nastaviť a v praxi rýchlejší, ak už používaš Bun.
+
+## Výkonové čísla
+
+Elysia konzistentne patrí medzi najvýkonnejšie JavaScript/TypeScript webové frameworky v benchmarkových suitách:
+
+```
+Požiadavky/sec (približne, líšia sa podľa benchmarku):
+┌──────────────────┬─────────────┐
+│ Elysia (Bun)     │  ~250,000+  │
+│ Hono (Bun)       │  ~200,000+  │
+│ Fastify (Node)   │  ~80,000    │
+│ Express (Node)   │  ~40,000    │
+└──────────────────┴─────────────┘
+```
+
+Medzera medzi Bun-natívnymi frameworkmi a Node.js frameworkmi nie je primárne o kóde frameworku – je o runtime. Bunovo HTTP spracovanie je implementované v Zig na systémovej úrovni namiesto v JavaScripte.
+
+## Kedy zvoliť Elysia
+
+Nový TypeScript backend na Bun: Elysia. DX je čistý, výkon je lepší ako čokoľvek na Node, a Eden zabíja problém synchronizácie typov bez všetkej tRPC ceremónie.
+
+Potreba bežať na Node alebo Edge: Hono je najbližší ekvivalent – podobné zreťazené API, širšia podpora runtime, mierne menej tesná klientská integrácia.
+
+Existujúci tRPC projekt: nestojí za migráciu. Pre čokoľvek nové na Bun je to môj východzí bod.

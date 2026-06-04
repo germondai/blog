@@ -1,0 +1,109 @@
+---
+title: 'Jeden VPS, ktorý to všetko zvládne: Self-hosting namiesto platenia za každú službu'
+description: 'Jeden VPS za 20 USD/mesiac môže nahradiť desiatky platených SaaS predplatných. Tu je popis, čo na svojom hostujem, čo to stojí a ako Traefik + Docker robia správu všetkého prehľadnou.'
+publishDate: 2025-05-25
+tags: ['self-hosting', 'devops', 'infrastructure', 'docker']
+---
+
+Predvolená cesta pre nasadenie webových projektov je jedna spravovaná služba na problém. Vercel pre hosting. Supabase pre databázu. Upstash pre Redis. S3 alebo R2 pre úložisko. Každá je sama o sebe pohodlná. Dohromady sa rýchlo sčítavajú – a každá je závislosť, ktorú nemôžeš plne kontrolovať.
+
+Presunul som všetko, čo prevádzkujem, na jeden VPS.
+
+## Čo zvládne VPS za 20 USD/mesiac
+
+Server so 4 vCPU, 8 GB RAM a 160 GB SSD – čo je to, čo Hetzner predáva za approximately 15–20 EUR mesačne – pohodlne spustí:
+
+| Služba | Čo nahrádza |
+|--------|------------|
+| Caddy alebo Traefik | Nginx, správu SSL |
+| PostgreSQL | Supabase, PlanetScale, RDS |
+| Redis | Upstash, Elasticache |
+| MinIO | S3, R2, Cloudflare |
+| Gitea | GitHub (súkromné repozitáre) |
+| Plausible | Google Analytics |
+| Umami | Mixpanel |
+| n8n | Zapier, Make |
+| Mailpit | Mailtrap (vývoj) |
+| Viacero Nuxt aplikácií | Vercel, Netlify |
+| Viacero statických webov | Cloudflare Pages |
+
+To nie je zoznam kompromisov. Ide o produkčné nástroje, ktoré používajú aj veľké firmy. Rozdiel je, že ich prevádzkuješ sám.
+
+## Porovnanie nákladov
+
+Realistický SaaS stack pre sólo vývojára alebo malý tím:
+
+```
+Vercel Pro        20 USD/mesiac
+PlanetScale       29 USD/mesiac
+Upstash Redis     10 USD/mesiac
+Cloudflare R2      5 USD/mesiac
+Analytics (platené) 9 USD/mesiac
+─────────────────────────
+Celkom            73 USD/mesiac  →  876 USD/rok
+```
+
+VPS, ktorý to všetko spustí:
+
+```
+Hetzner CX32     18 EUR/mesiac
+Backblaze B2      2 USD/mesiac (zálohy)
+─────────────────────────
+Celkom           ~22 USD/mesiac  →  ~264 USD/rok
+```
+
+Dôležitejšie je, že vlastníš dáta, kontroluješ konfiguráciu a nič nezmizne, pretože startup zmenil zameranie alebo VC rozhodol, že produkt nedosiahne škálu.
+
+## Ako Docker + Traefik robia toto spravovateľným
+
+Prevádzkovanie desiatich služieb na jednom stroji znie ako nočná mora správy systému z roku 2010. S Docker Compose a Traefik to tak nie je.
+
+Každá služba je `docker-compose.yml` súbor vo svojom vlastnom adresári. Traefik číta Docker labely a routuje prevádzku automaticky. Pridanie novej služby je pridanie compose súboru s labelmi a spustenie `docker compose up -d`. Odobranie je `docker compose down`.
+
+```yaml
+# príklad: spúšťanie Plausible Analytics
+services:
+  plausible:
+    image: ghcr.io/plausible/community-edition:v2
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.plausible.rule=Host(`analytics.priklad.sk`)
+      - traefik.http.routers.plausible.tls.certresolver=letsencrypt
+    environment:
+      - DATABASE_URL=postgres://...
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+SSL je spracovávané Traeficom automaticky. Žiadna Certbot cron úloha. Žiadna ručná správa certifikátov.
+
+## Infraštruktúra, na ktorej záleží
+
+**Zálohy**: vec, ktorá robí self-hosting životaschopným, sú automatizované zálohy. Prevádzkujem denný skript, ktorý dumpuje všetky Postgres databázy, tarballuje dáta MinIO a posiela všetko do Backblaze B2. Rclone zabezpečuje prenos. Zálohovací skript beží v cron úlohe a pri zlyhaní posiela notifikáciu. Testuj svoje obnovy.
+
+**Monitoring**: minimálna inštancia Uptime Kuma bežiaca na rovnakom serveri (alebo ideálne druhom) monitoruje všetky služby a posiela upozornenia cez Telegram alebo e-mail, keď je niečo dole. Zadarmo, open source, jeden kontajner.
+
+**Aktualizácie**: `docker compose pull && docker compose up -d` v každom adresári služby. Jednoduchý skript môže prechádzať cez všetky compose adresáre. Pre bezpečnostné záplaty nastavuj automatické unattended upgrades na hostiteľskom OS.
+
+## Čo sa vzdávaš
+
+Spravované služby riešia škálovanie za teba. Ak tvoja Postgres databáza naraz potrebuje zvládnuť 10× prevádzku, spravovaná služba ju prispôsobí. Na VPS upgraduješ server alebo pridávaš repliky ručne.
+
+Pre väčšinu osobných projektov a malých podnikov toto nie je skutočné obmedzenie. Hetzner CX52 (8 vCPU, 16 GB RAM) zvláda viac súbežných používateľov, ako väčšina aplikácií niekedy uvidí. Ak skutočne potrebuješ škálovanie na úrovni databázy, máš objemy prevádzky, kde náklady na spravované riešenie dávajú zmysel.
+
+Vzdávaš sa aj pohodlia vylešteného dashboardu pre každú službu. Kompromis: presne chápeš, čo tvoj stack robí a nič ťa neprekvapí.
+
+## Začíname
+
+Začni malé. Presuň jednu vec.
+
+Vybrať jednu SaaS službu, za ktorú platíš a ktorá má solidnú self-hosted alternatívu – Plausible namiesto Google Analytics, Gitea namiesto súkromných GitHub repozitárov, MinIO namiesto S3. Roztočiť to na najlacnejšom VPS, ktorý nájdeš, prevádzkovať to mesiac a sledovať, ako sa skúsenosť cíti.
+
+Cieľom nie je self-hostovať všetko prvý deň. Ide o pochopenie toho, čo skutočne prevádzkuje tvoje projekty, aby si mohol robiť zámerné rozhodnutia o tom, kde platíš za spravované služby a kde vlastníš infraštruktúru.
+
+[Awesome Self-Hosted](https://github.com/awesome-selfhosted/awesome-selfhosted) je najlepší východzí bod pre nájdenie alternatív k čomukoľvek, za čo práve platíš.

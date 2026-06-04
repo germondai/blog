@@ -1,0 +1,128 @@
+---
+title: 'Prečo prevádzkujem všetko za Traefik namiesto Nginx'
+description: 'Traefik číta tvoje Docker labely a konfiguruje sa sám. SSL sa obnovuje samo. Nové služby sa objavujú bez úpravy konfiguračného súboru. Tu je popis, prečo nahradil Nginx v mojom stacku.'
+publishDate: 2025-07-15
+tags: ['docker', 'devops', 'self-hosting', 'infrastructure']
+---
+
+Prevádzkovanie viacerých služieb na serveri s Nginx je problém konfiguračného prieskumu. Každá nová služba potrebuje nový server blok, nový záznam obnovy SSL certifikátu a reload. Urob chybu v konfigurácii a všetko je dole. Urob chybu v obnove SSL a veci sa pokazia o 3 ráno.
+
+[Traefik](https://traefik.io) je reverse proxy, ktorá číta Docker labely a konfiguruje sa sama. Opisuješ, čo chceš na kontajneri, a Traefik príde na routovanie. SSL cez Let's Encrypt sa obnovuje automaticky. Nové nasadenie nevyžaduje žiadne zmeny proxy konfigurácie.
+
+## Čo Traefik robí inak
+
+S Nginx sú proxy a služba konfigurované oddelene. Píšeš server blok pre každú službu, spravuješ SSL certifikáty cez Certbot a pamätáš si reloadovať Nginx po zmenách. Proxy vôbec nevie o Dockeri.
+
+S Traefik proxy objavuje služby cez Docker API. Každý kontajner hovorí Traefikovi, ako k nemu routovať, pomocou labelov. Pridaj kontajner so správnymi labelmi a stane sa prístupným. Odstráň kontajner a zmizne. Traefik vidí zmenu v priebehu sekúnd.
+
+```
+┌─────────────────────────────────────────┐
+│              Internet                   │
+└──────────────────┬──────────────────────┘
+                   │ HTTPS (443)
+         ┌─────────▼─────────┐
+         │      Traefik      │  ← číta Docker labely
+         │   (auto SSL/TLS)  │    objavuje služby
+         └───┬───────────┬───┘    routuje prevádzku
+             │           │
+    ┌────────▼──┐  ┌─────▼──────┐
+    │  app:3000 │  │  api:8080  │
+    └───────────┘  └────────────┘
+```
+
+## Fungujúce nastavenie
+
+`docker-compose.yml` pre samotný Traefik:
+
+```yaml
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=ty@priklad.sk
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme.json:/acme.json
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+A pre akúkoľvek službu, ktorú chceš vystaviť:
+
+```yaml
+services:
+  my-app:
+    image: my-app:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.my-app.rule=Host(`app.priklad.sk`)
+      - traefik.http.routers.my-app.entrypoints=websecure
+      - traefik.http.routers.my-app.tls.certresolver=letsencrypt
+      - traefik.http.services.my-app.loadbalancer.server.port=3000
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+To je celá konfigurácia pre `app.priklad.sk` s platným SSL. Žiadna Nginx konfigurácia. Žiadna Certbot cron úloha. Traefik to vyberie bez reštartu.
+
+## SSL, ktoré sa obnovuje samo
+
+S Nginx + Certbot je obnova certifikátu cron úloha, ktorú musíš nastaviť a overovať, že beží. S Traefik je ACME integrácia zabudovaná. Certifikáty sú požadované pri prvom prístupe a automaticky obnovené pred vypršaním. Súbor `acme.json` je miesto, kde Traefik ukladá certifikáty medzi reštartmi.
+
+Jedna vec, ktorú treba urobiť správne: vytvor `acme.json` s `chmod 600` pred prvým spustením, inak Let's Encrypt odmietne umiestnenie úložiska.
+
+## Pridanie novej služby
+
+Akonáhle Traefik beží, pridanie novej služby je len pridanie labelov do compose súboru pre danú službu. Žiadne zmeny v Traefik vlastnej konfigurácii. Žiadny reštart proxy. Nová služba sa sprístupní v priebehu sekúnd od spustenia kontajnera.
+
+Pre stack s piatimi alebo desiatimi službami je to transformačné. Proxy je infraštruktúra, ktorú nastavíš raz. Potom každý tím alebo projekt nasadzuje nezávisle.
+
+## Middleware v labeloch
+
+Traefik middleware spracováva veci ako HTTP→HTTPS presmerování, basic auth, rate limiting a hlavičky-všetko v labeloch.
+
+```yaml
+labels:
+  # Presmerovanie HTTP na HTTPS
+  - traefik.http.middlewares.redirect-https.redirectscheme.scheme=https
+  - traefik.http.routers.my-app-http.middlewares=redirect-https
+
+  # Pridanie bezpečnostných hlavičiek
+  - traefik.http.middlewares.secure-headers.headers.stsSeconds=31536000
+  - traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true
+```
+
+## Kedy je Nginx stále rozumný
+
+Pre jednu službu alebo keď chceš servírovať statické súbory z disku, je Nginx jednoduchší. Traefik pridáva hodnotu, keď prevádzkuješ viacero služieb na jednom stroji a chceš, aby sa objavovali a mizeli bez úpravy proxy konfigurácie.
+
+Pre statické weby stále používam Nginx vo vnútri kontajnera (obraz `nginx:alpine` servírujúci `dist/`). Traefik len routuje HTTPS prevádzku na tento Nginx kontajner. Navzájom sa dobre dopĺňajú.
+
+## Dashboard
+
+Traefik má webový dashboard, ktorý zobrazuje všetky routery, služby a middleware, ktoré objavil. Užitočné na ladenie, prečo služba nevykonáva routovanie tak, ako sa očakáva.
+
+```yaml
+command:
+  - --api.dashboard=true
+  - --api.insecure=true  # len pre lokálny vývoj, v produkcii chráň autentizáciou
+```
+
+Je to jeden z tých nástrojov, ktorý sa zdá príliš zložitý pre jednu službu a jednoznačne správny, akonáhle prevádzkuješ viac ako dve.

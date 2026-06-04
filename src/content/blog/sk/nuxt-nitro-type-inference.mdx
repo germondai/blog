@@ -1,0 +1,106 @@
+---
+title: 'Nuxt + Nitro typová inferencia: tRPC-like bezpečnosť bez nastavovania'
+description: 'Nuxt automaticky importuje typy serverových trás do klienta. Dostaneš kompletnú typovú bezpečnosť od konca ku koncu medzi API a frontendom bez extra knižnice, bez generovania kódu a bez schémy na udržiavanie.'
+publishDate: 2025-08-19
+tags: ['nuxt', 'typescript', 'nitro', 'web-development', 'dx']
+---
+
+Napíšeš API trasu na serveri. Zavoláš ju s `useFetch` alebo `$fetch` na klientovi. TypeScript pozná presný tvar odpovede – žiadne tRPC, žiadne generovanie kódu, žiadna extra konfigurácia.
+
+Ak si používal tRPC s Reactom, Nuxt ti dá to isté s menším nastavením. Rozdiel je v tom, že to jednoducho funguje bez samostatného routera, adaptéra a providera na zapojenie.
+
+## Ako to funguje
+
+Nuxt používa [Nitro](https://nitro.build) ako svoj serverový engine. Nitro môže odvodzovať návratový typ každej API trasy a vystaviť túto informáciu Nuxt klientskej vrstve.
+
+Serverová trasa v `server/api/posts.get.ts`:
+
+```typescript
+export default defineEventHandler(async () => {
+  const posts = await db.select().from(postsTable)
+  return posts
+})
+```
+
+Na klientovi `useFetch` automaticky vie, čo toto vracia:
+
+```typescript
+// data je typizovaná ako Post[] - nie je potrebná žiadna typová anotácia
+const { data } = await useFetch('/api/posts')
+```
+
+TypeScript odvodzuje návratový typ priamo z handlera. Ak zmeníš tvar toho, čo trasa vracia, TypeScript oznámi každé call site, ktoré teraz nezodpovedá.
+
+## Mechanizmus
+
+Nuxt generuje TypeScript deklarácie pre všetky tvoje serverové trasy do `.nuxt/types/nitro.d.ts`. Tieto deklarácie mapujú cesty trás na ich odvodené typy odpovedí. `useFetch` je typizovaný, aby tieto deklarácie konzumoval, takže návratový typ `useFetch` volania plynie priamo z návratového typu serverového handlera.
+
+Žiadna schéma. Žiadny krok generovania kódu, ktorý si musíš pamätať spustiť. Žiadny samostatný klientský balíček na inštaláciu. Typy sa aktualizujú, keď uložíš súbor.
+
+## Typizované parametre trasy a query
+
+Inferencia ide ďalej. Parametre handlera sú typizované tiež.
+
+```typescript
+// server/api/posts/[id].get.ts
+export default defineEventHandler(async (event) => {
+  const { id } = getRouterParams(event)  // typizované ako string
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, Number(id)),
+  })
+  if (!post) throw createError({ statusCode: 404 })
+  return post
+})
+```
+
+```typescript
+// klient - data je Post | null
+const { data } = await useFetch(`/api/posts/${postId}`)
+```
+
+Query parametre, parsovanie body s `readBody<T>` a hlavičky majú typizované pomocníky tiež.
+
+## Porovnanie s tRPC
+
+tRPC rieši rovnaký problém pre React/Next.js aplikácie. Definuješ procedúry na serveri a klient ich volá s plnou typovou bezpečnosťou. Je to vynikajúce riešenie, najmä pre komplexné aplikácie s mnohými procedúrami.
+
+Nuxt prístup je ľahší:
+
+| Aspekt | tRPC | Nuxt + Nitro |
+|--------|------|-------------|
+| Nastavenie | Router, adaptér, provider | Nič navyše |
+| Klientské volania | `trpc.posts.query()` | `useFetch('/api/posts')` |
+| Zdroj typov | Exportovaný typ routera | Auto-generované deklarácie |
+| REST kompatibilita | Nie (len RPC) | Áno (štandardné HTTP) |
+| Externé API volania | Vyžaduje wrapper | Prostý fetch funguje |
+| Validácia | Zod/Valibot povinné | Voliteľné |
+
+Pre Nuxt projekt je vstavaná inferencia správnym predvoleným nastavením. Dostaneš typovú bezpečnosť naprieč stackom a tvoje API zostane štandardné REST API, ktoré môže volať akýkoľvek klient, nie tRPC-špecifický endpoint.
+
+## Pridanie validácie
+
+Inferencia je odvodená, nie vynucovaná. Ak chceš runtime validáciu (a pre externý vstup by si mal), pridaj ju pomocou schéma knižnice.
+
+```typescript
+import { z } from 'zod'
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1),
+  content: z.string().min(10),
+})
+
+export default defineEventHandler(async (event) => {
+  const body = await readValidatedBody(event, CreatePostSchema.parse)
+  // body je typizované ako { title: string; content: string }
+  const post = await db.insert(posts).values(body).returning()
+  return post[0]
+})
+```
+
+`readValidatedBody` je Nitro utilita, ktorá validuje a vracia typizované body. Validovaný typ automaticky plynie ku klientovi.
+
+## Čo to znamená v praxi
+
+Píšeš serverový kód, voláš ho z klienta, TypeScript ich udržiava synchronizované. Žiadna runtime správa schémy, žiadne extra nástroje na udržiavanie.
+
+Je to menej explicitné ako tRPC, ale tiež neviditeľné – typy jednoducho fungujú a všimneš si ich iba keď sa niečo zmení na serveri a klient to okamžite označí.

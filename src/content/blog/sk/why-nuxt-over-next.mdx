@@ -1,0 +1,46 @@
+---
+title: 'Prečo sa stále vraciam k Nuxt namiesto Next.js a každého iného meta-frameworku'
+description: 'Po budovaní projektov s Next.js, SvelteKit a Astro sa stále vraciam k Nuxt. Vue 3 Composition API, ekosystém modulov a vývojársky zážitok sa dohromady skladajú do niečoho, čo je ťažké prekonať.'
+publishDate: 2025-07-28
+tags: ['nuxt', 'vue', 'web-development', 'opinion']
+---
+
+Každý frontend vývojár musí nakoniec vybrať meta-framework a žiť s dôsledkami. Dodal som projekty v Next.js, SvelteKit a Astro. Astro používam pre weby s ťažkým obsahom (tento blog na ňom beží). Ale pre full-stack webové aplikácie sa stále vraciam k [Nuxt](https://nuxt.com).
+
+Tu je to, čo ma stále priťahuje späť.
+
+## Vue 3 Composition API sa cíti prirodzenejšie
+
+Model hookov Reactu je chytrý, ale má hrany. Pravidlá hookov existujú, pretože ich React potrebuje, nie preto, že uľahčujú uvažovanie o kóde. Nemôžeš podmienene volať hook. Musíš spravovať dependency arrays v `useEffect`. `useCallback` a `useMemo` sa stanú nutnými, akonáhle ti záleží na výkone.
+
+Composition API Vue 3 rieši rovnaké problémy bez týchto obmedzení. `ref` a `reactive` sú priamočiare. `watchEffect` a `watch` sa správajú predvídateľne. Neexistuje žiadna mentálna záťaž ohľadom toho, kedy sa veci re-renderujú. Kód sa číta ako JavaScript.
+
+Pre niekoho, kto píše veľa TypeScript, je tiež typová inferencia Vue výborná. Props, emity a composables sú všetky prvotriedne TypeScript občania bez potreby ďalších wrapper utilít.
+
+## File-based routing, ktorý sa správa
+
+File-based routing Nuxt funguje tak, ako očakávaš. Súbory v `pages/` sa stávajú routami. Vnorené adresáre sa stávajú vnoreními routami. Dynamické segmenty používajú závorky. Pomenované rozloženia automaticky obalujú stránky.
+
+Next.js to tiež robí s App Routerom, ale App Router zaviedol dosť nových konceptov (Server Components, `use client`, rozlíšenie medzi async a non-async komponentmi), že sa cíti ako učenie nového frameworku na vrchole starého.
+
+## Ekosystém modulov
+
+Registr [Nuxt Modules](https://nuxt.com/modules) je jednou z najlepších vecí o ekosystéme. Moduly sa pri builde inštalujú do frameworku a konfigurujú sa samy. Pridáš `@nuxtjs/i18n` do svojej konfigurácie a internacionalizácia je zapojená. Pridáš `@sidebase/nuxt-auth` a autentizácia je spracovaná. Vzor je konzistentný naprieč modulmi.
+
+## Flexibilita renderovania bez myslenia na úrovni frameworku
+
+Nuxt podporuje SSR, SSG, ISR (cez Nitro), client-only a hybridné per-route renderovanie z jednej codebase. Deklaruješ mód per stránku s `definePageMeta`. Nie je potrebné prestrukturovať projekt alebo rozdeliť do samostatných aplikácií, keď sa požiadavky zmenia.
+
+## Nuxt DevTools
+
+[Nuxt DevTools](https://devtools.nuxt.com) je browserový panel, ktorý ti v reálnom čase ukazuje každú stránku, komponent, composable a modul v tvojej aplikácii. Môžeš skúmať strom trás, vizualizovať vzťahy komponentov, skontrolovať, aké moduly sú načítané, a vidieť server logy bez opustenia prehliadača.
+
+## Kde iné frameworky vyhrávajú
+
+Astro je lepšie pre statické obsahové weby, kde chceš nula JavaScriptu v predvolenom nastavení a maximálne skóre Lighthouse s minimálnym úsilím. Tento blog je z tohto dôvodu postavený na Astro.
+
+Next.js má väčší ekosystém tretích strán tutoriálov, Stack Overflow odpovedí a komunitných zdrojov. Ak stavíš produkt, ktorý potrebujú udržiavať iní ľudia bez onboardingu, argument oboznámenosti je reálny.
+
+SvelteKit je skutočne zaujímavý a Svelte syntax je najergonomickejšia zo všetkých. Dosiahujem k nemu menej často, pretože ekosystém je menší a prístup Svelte k reaktivite sa znovu mení vo Svelte 5.
+
+Pre všetko ostatné sa vraciam k Nuxt.

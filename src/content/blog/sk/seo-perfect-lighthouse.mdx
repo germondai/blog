@@ -1,0 +1,92 @@
+---
+title: 'SEO správne: 100/100 Lighthouse, Schema Markup a všetko ostatné'
+description: 'Praktický sprievodca všetkým, čo ovplyvňuje hodnotenie vo vyhľadávačoch a prehľadávateľnosť: Core Web Vitals, Open Graph, Schema.org JSON-LD, hreflang, sitemaps, robots.txt a ako to všetko zapadá dohromady.'
+publishDate: 2025-09-22
+tags: ['seo', 'web-development', 'performance', 'best-practices']
+---
+
+Perfektné skóre Lighthouse nie je samo o sebe cieľom. Je to vedľajší účinok budovania webu, ktorý sa rýchlo načítava, neposkakuje pri načítavaní a okamžite reaguje na interakciu. Vyhľadávače tieto signály používajú, pretože na nich záleží používateľom.
+
+Toto je to, čo som sa naučil pri budovaní SEO vrstvy pre tento blog a ostatné projekty v mojom stacku.
+
+## Core Web Vitals: tri čísla, na ktorých záleží
+
+Googleov rankingový algoritmus zahŕňa tri výkonnostné metriky priamo.
+
+**LCP (Largest Contentful Paint)** meria, ako dlho trvá, kým sa načíta najväčší viditeľný prvok. Pre väčšinu stránok je to hero obrázok alebo hlavný nadpis. Udržuj pod 2,5 sekundy. Hlavné páky: komprimuj obrázky, predloading kritických zdrojov, vyhni sa render-blokujúcim skriptom.
+
+**CLS (Cumulative Layout Shift)** meria, ako veľmi stránka poskakuje pri načítavaní. Načítavanie písem je najčastejším vinníkom. Nastavuj explicitné `width` a `height` na obrázkoch. Používaj `font-display: optional` alebo zodpovedaj metrikám fallback písma načítanému písmu, aby sa nič neposunulo pri jeho príchode.
+
+**INP (Interaction to Next Paint)** nahradil FID a meria citlivosť na vstup používateľa. Dlhé JavaScript úlohy sú nepriateľom. Udržuj hlavné vlákno bez práce, ktorá blokuje interakciu.
+
+## Vrstva meta tagov
+
+Každá stránka potrebuje odlišný `<title>` a `<meta name="description">`. Tituly by mali byť do 60 znakov. Popisy do 160 znakov. Ani jeden by nemal byť duplikovaný naprieč stránkami.
+
+```html
+<title>Building a Free Icon API for Developer Portfolios and READMEs</title>
+<meta name="description" content="A self-hosted API that generates tech stack icon strips via URL params. No account, no watermarks." />
+<link rel="canonical" href="https://blog.germondai.com/blog/building-germondai-icons" />
+```
+
+Kanonická URL zabraňuje penalizáciám za duplicitný obsah, keď je tá istá stránka prístupná z viacerých URL.
+
+## Open Graph
+
+Open Graph tagy kontrolujú, ako stránka vyzerá pri zdieľaní na sociálnych platformách. Minimálne:
+
+```html
+<meta property="og:title" content="..." />
+<meta property="og:description" content="..." />
+<meta property="og:image" content="https://..." />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://..." />
+<meta property="og:site_name" content="Germondov blog" />
+```
+
+Pre články pridaj tiež `article:published_time`, `article:modified_time` a `article:tag`. Pre obrázky: vždy zahrň šírku a výšku.
+
+## Twitter Cards
+
+Twitter/X má vlastnú sadu tagov, ktorá sa prekrýva s OG, ale nie je identická:
+
+```html
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="..." />
+<meta name="twitter:description" content="..." />
+<meta name="twitter:image" content="https://..." />
+<meta name="twitter:image:alt" content="..." />
+<meta name="twitter:creator" content="@germondai" />
+```
+
+## Schema.org JSON-LD
+
+Štruktúrované dáta sú strojovo čitateľné metadáta, ktoré umožňujú bohaté výsledky vo vyhľadávaní Google. Odporúčaný formát je JSON-LD v značke `<script type="application/ld+json">`.
+
+Pre blog tri schémy pokrývajú väčšinu: **WebSite** s `potentialAction` SearchAction, **Person** zakladajúci autorstvo, a **BlogPosting** na každej stránke článku.
+
+## Sitemap a robots.txt
+
+Sitemap hovorí vyhľadávačom každú URL na tvojom webe. Pre web s viacerými jazykmi zahrň všetky locales. Pre Astro `@astrojs/sitemap` ju generuje automaticky.
+
+`robots.txt` hovorí crawlerom, čo môžu a nemôžu pristupovať. Udržuj jednoduché, ak nemáš konkrétne sekcie na blokovanie.
+
+## hreflang pre medzinárodné weby
+
+Pre weby vo viacerých jazykoch `hreflang` linky hovoria vyhľadávačom, ktoré stránky sú preklady navzájom.
+
+```html
+<link rel="alternate" hreflang="en" href="https://blog.germondai.com/blog/post" />
+<link rel="alternate" hreflang="cs" href="https://blog.germondai.com/cs/blog/post" />
+<link rel="alternate" hreflang="x-default" href="https://blog.germondai.com/blog/post" />
+```
+
+## Self-hostované písma a CLS
+
+Načítavanie písem z Google CDN pridáva sieťovú požiadavku a prispieva k layout shiftu. Opravou je stiahnuť písma pri builde a servírovať ich sám, s metrikami fallback `@font-face`, ktoré systémové písmo zodpovedajú rozmerom načítaného písma.
+
+## Výsledok
+
+Správne nastavenie všetkého tohto nie je glamorózna práca, ale výsledok je konzistentný: rýchle stránky, čisté náhľady vo vyhľadávaní, štruktúrované dáta v Google's knowledge graphe a hodnotenia, ktoré držia, pretože základy sú solidné.

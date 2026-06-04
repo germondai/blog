@@ -1,0 +1,117 @@
+---
+title: 'Web scraping v praxi: Puppeteer, Stealth, Proxies a Cheerio'
+description: 'Od základného HTML fetchovania po plnú automatizáciu headless browsera so stealth pluginmi a rotujúcimi proxies – praktický sprievodca zberom dát z webu bez blokovania.'
+publishDate: 2024-08-13
+tags: ['web-scraping', 'puppeteer', 'nodejs', 'automation', 'typescript']
+---
+
+Web scraping je jedna z tých zručností, ktorá znie jednoducho, kým ju nespustíš na skutočnom webe. Web vráti HTML v tvojom prehliadači, ale pošle CAPTCHA tvojmu skriptu. Tvoja IP je zablokovaná po 50 požiadavkách. Dáta, ktoré chceš, sú načítané JavaScriptom po vykreslení stránky, takže tvoj prostý HTTP fetch nedostane nič užitočné.
+
+Scrapoval som veľa webov z mnohých dôvodov: budovanie datasetov, monitorovanie cenových zmien, archivácia obsahu, napájanie dátových pipeline.
+
+## Najjednoduchší prípad: fetch a parsovanie
+
+Ak web servíruje obsah ako statické HTML, nepotrebuješ prehliadač. Fetchni stránku a zparsuj ju.
+
+```typescript
+import * as cheerio from 'cheerio'
+
+const res = await fetch('https://example.com/products')
+const html = await res.text()
+const $ = cheerio.load(html)
+
+const titles: string[] = []
+$('.product-title').each((_, el) => {
+  titles.push($(el).text().trim())
+})
+```
+
+[Cheerio](https://cheerio.js.org) ti dáva jQuery-like API pre HTML. Rýchle, ľahké, bez prehliadača.
+
+## Kedy potrebuješ JavaScript execution: Puppeteer
+
+Moderné weby vykresľujú obsah v prehliadači pomocou JavaScriptu. HTML, ktoré priamo fetchuješ, je often len kostra bez dát. Headless prehliadač skutočne spustí JavaScript a dá ti to, čo by videl používateľ.
+
+[Puppeteer](https://pptr.dev) programaticky ovláda headless Chrome inštanciu.
+
+```typescript
+import puppeteer from 'puppeteer'
+
+const browser = await puppeteer.launch({ headless: true })
+const page = await browser.newPage()
+
+await page.goto('https://example.com', { waitUntil: 'networkidle2' })
+await page.waitForSelector('.product-list')
+
+const items = await page.evaluate(() => {
+  return Array.from(document.querySelectorAll('.product-title'))
+    .map(el => el.textContent?.trim())
+})
+
+await browser.close()
+```
+
+[Playwright](https://playwright.dev) je moderná alternatíva – lepšia podpora naprieč prehliadačmi a čistejšie API.
+
+## Blokovanie: prečo sa deje
+
+Weby detegujú scrapery prostredníctvom niekoľkých signálov:
+
+- **Chýbajúce browser fingerprints**: skutočný prehliadač posiela desiatky hlavičiek a JavaScript API, ktoré základný skript neposiela.
+- **Vzory požiadaviek**: 100 požiadaviek za 10 sekúnd z jednej IP nie je ľudské správanie.
+- **Chýbajúce cookies a stav session**: ľudia hromadia cookies naprieč session; skripty often začínajú odznova zakaždým.
+
+## Stealth mód
+
+[puppeteer-extra](https://github.com/berstend/puppeteer-extra) je wrapper, ktorý pridáva podporu pluginov. Stealth plugin opravuje headless Chrome inštanciu, aby odstránil signály, ktoré anti-bot systémy hľadajú.
+
+```typescript
+import puppeteer from 'puppeteer-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+
+puppeteer.use(StealthPlugin())
+
+const browser = await puppeteer.launch({ headless: true })
+```
+
+## Proxies a rotácia IP
+
+Aj so stealth, scraping vo veľkom meradle z jednej IP spúšťa rate limity. Opravou je rotácia cez rôzne IP adresy.
+
+```typescript
+const proxies = [
+  'http://proxy1.example.com:8080',
+  'http://proxy2.example.com:8080',
+  'http://proxy3.example.com:8080',
+]
+
+const proxy = proxies[Math.floor(Math.random() * proxies.length)]
+const browser = await puppeteer.launch({ args: [`--proxy-server=${proxy}`] })
+```
+
+## Elegantné spracovanie rate limitov
+
+Randomizuj svoje oneskorenia. Človek nekliká na odkazy presne v 1-sekundových intervaloch.
+
+```typescript
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+for (const url of urls) {
+  await page.goto(url)
+  await sleep(2000 + Math.random() * 4000)
+}
+```
+
+## CORS nie je scraping blocker
+
+CORS je vynucovaný prehliadačmi, nie servermi. Keď robíš požiadavku zo server-side skriptu, server vráti čokoľvek vráti – CORS hlavičky zastavujú iba prehliadače v čítaní cross-origin odpovedí v client-side JavaScripte. Tvoj scraper nie je prehliadač. CORS je irelevantný.
+
+## Právne a etické poznámky
+
+Technická schopnosť scrapovať web neznamená, že si oprávnený to robiť. Skontroluj `robots.txt` webu, podmienky služby a príslušné zákony. Mnohé weby explicitne zakazujú scraping.
+
+## Čo používať
+
+Pre statické HTML: Cheerio + fetch.
+Pre JavaScript-renderované stránky: Playwright alebo Puppeteer so stealth pluginom.
+Pre škálovanie: rotujúce residential proxies, náhodné oneskorenia, retry s backoffom.

@@ -1,0 +1,85 @@
+---
+title: 'Prečo som nahradil ESLint a Prettier Biomom (a neotočil sa späť)'
+description: 'Dva nástroje, dva konfiguračné súbory, dve sady konfliktujúcich pravidiel a pomalý CI pipeline. Biome nahradil to všetko jedným rýchlym nástrojom postaveným na Ruste. Tu je popis, prečo bol prechod v retrospektíve zrejmý.'
+publishDate: 2026-01-09
+tags: ['tooling', 'developer-experience', 'open-source', 'typescript']
+---
+
+Po roky bolo štandardné nastavenie pre linting a formátovanie JavaScriptu: ESLint pre linting, Prettier pre formátovanie, a potom hromada konfigurácie, aby spolu nebojovali. Fungovalo to, ale nikdy to nebolo príjemné.
+
+[Biome](https://biomejs.dev) nahradil to všetko pre mňa v jednom kroku.
+
+## Problém s ESLint plus Prettier
+
+Oba nástroje sú individuálne dobré v tom, čo robia. Problém je kombinácia.
+
+ESLint aj Prettier majú názory na štýl kódu. Sú v konflikte. Potrebuješ `eslint-config-prettier`, aby si zbavil formátovacie pravidlá ESLint, aby ich Prettier mohol spracovávať. Potrebuješ `eslint-plugin-prettier`, ak chceš, aby sa porušenia Prettier zobrazovali ako ESLint chyby. Udržiavaš dva konfiguračné súbory, dve sady závislostí a aktualizuješ ich v rôznych plánoch.
+
+Samotné konfiguračné súbory sú problémom. `.eslintrc.json` plus `.prettierrc` plus `.prettierignore` plus možno `prettier.config.js`. Každý projekt hromadí mierne odlišné verzie týchto súborov a "skopírovať z posledného projektu" spôsobuje drift.
+
+Rýchlosť je ďalším problémom. ESLint na stredne veľkej codebase trvá niekoľko sekúnd. V pre-commit hooku je to dostatočné na to, aby ho vývojári obchádzali. V CI pridáva minúty naprieč mesiacom PR.
+
+## Čo je Biome
+
+[Biome](https://biomejs.dev) je jediný nástroj postavený na Ruste, ktorý robí linting, formátovanie a radenie importov. Jeden binár, jeden konfiguračný súbor (`biome.json`), jeden príkaz.
+
+Je rýchly spôsobom, ktorý mení správanie. Lint a kontrola formátovania celého zdrojového adresára veľkého projektu trvá menej ako 100 milisekúnd. Pre-commit hooky končia, kým si ich všimneš. CI kroky, ktoré predtým trvali 30 sekúnd, trvajú 2.
+
+Môj `biome.json` pre typický TypeScript projekt:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": { "noUnusedVariables": "error" },
+      "suspicious": { "noExplicitAny": "error" },
+      "style": {
+        "useConst": "error",
+        "useTemplate": "error",
+        "noNonNullAssertion": "warn"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded"
+    }
+  }
+}
+```
+
+## Migrácia
+
+Pre väčšinu TypeScript projektov migrácia z ESLint a Prettier na Biome trvá menej ako hodinu.
+
+1. Nainštaluj Biome: `bun add -d @biomejs/biome`
+2. Inicializuj: `bunx biome init`
+3. Spusti migračný pomocník: `bunx biome migrate eslint --write` a `bunx biome migrate prettier --write`
+4. Odstráň ESLint, Prettier a ich konfiguračné súbory
+5. Aktualizuj skripty v `package.json`
+
+## Čo teraz spúšťam v každom projekte
+
+```json
+{
+  "scripts": {
+    "lint": "biome check ./src",
+    "lint:fix": "biome check --write ./src",
+    "format": "biome format --write ./src"
+  }
+}
+```
+
+Jeden nástroj. Jeden konfiguračný súbor. Dostatočne rýchly, aby si sa o to nestaral.

@@ -1,0 +1,93 @@
+---
+title: 'WebSockets vs SSE vs Socket.IO: Real-time web v praxi'
+description: 'Tri spôsoby, ako odosielať dáta zo servera na klienta v reálnom čase. Tu je popis, čo každý z nich robí, kde každý z nich sedí a ako bun.ws mení výkonový obraz pre WebSocket servery.'
+publishDate: 2025-10-06
+tags: ['websockets', 'real-time', 'backend', 'architecture', 'bun']
+---
+
+Live chat, kolaboratívne editovanie, dashboardy aktualizujúce sa bez obnovenia – všetky tieto potrebujú server, aby odosielal dáta klientovi. Existujú tri hlavné spôsoby, ako to urobiť, a nie sú zameniteľné.
+
+## Ako každý z nich funguje
+
+Premýšľaj o normálnej webovej požiadavke ako o telefonickom hovore, kde hovoríš a potom zavesíš a čakáš, kým zavolá druhá osoba späť. To je HTTP. Real-time potrebuje niečo viac ako udržiavať linku otvorenú.
+
+**Server-Sent Events (SSE)** udržiavajú pripojenie otvorené, takže server môže odosielať správy kedykoľvek chce. Klient nemôže posielať správy späť cez rovnaké pripojenie. Jednosmerné, server na klienta.
+
+**WebSockets** sú plné obojsmerné pripojenie. Akonáhle je nadviazané, ktorákoľvek strana môže kedykoľvek poslať správu druhej s nízkou latenciou. To je to, čo chatové aplikácie, multiplayer hry a kolaboratívne nástroje používajú.
+
+**Socket.IO** je knižnica postavená na vrchole WebSockets, ktorá pridáva auto-reconnection, miestnosti, pomenovanie udalostí a fallbacky.
+
+## Porovnanie vedľa seba
+
+| Funkcia | SSE | WebSockets | Socket.IO |
+|---------|-----|-----------|-----------|
+| Smer | Server → Klient iba | Obojsmerné | Obojsmerné |
+| Protokol | HTTP | WS/WSS | Vlastný (na vrchole WS) |
+| Auto-reconnect | Zabudované v prehliadači | Ručné | Zabudované |
+| Miestnosti/namespace | Nie | Ručné | Zabudované |
+| Podpora prehliadača | Výborná | Výborná | Vyžaduje klientsku lib |
+| Overhead | Nízky | Nízky | Vyšší |
+| Najlepšie pre | Feedy, notifikácie | Chat, hry, kolaborácia | Komplexný real-time |
+
+## Kedy použiť SSE
+
+SSE je podhodnotený. Ak tvoj prípad použitia je server-na-klienta iba – live activity feedy, aktualizácie pokroku, AI streamovacie odpovede, notifikácie – SSE je jednoduchší ako WebSockets a funguje so štandardným HTTP/2.
+
+```typescript
+// Nitro / Nuxt serverová trasa
+export default defineEventHandler(async (event) => {
+  const stream = createEventStream(event)
+
+  const interval = setInterval(async () => {
+    await stream.push({ data: JSON.stringify({ time: Date.now() }) })
+  }, 1000)
+
+  stream.onClosed(() => clearInterval(interval))
+
+  return stream.send()
+})
+```
+
+## Kedy použiť WebSockets
+
+Čokoľvek obojsmerné: chat kde klient posiela správy, kolaboratívne editovanie kde viacero používateľov mení rovnaký dokument, multiplayer hry kde pozícia hráča tečie oboma smermi.
+
+```typescript
+// Bun WebSocket server
+const server = Bun.serve({
+  port: 3000,
+  websocket: {
+    open(ws) { ws.subscribe('chat') },
+    message(ws, message) { server.publish('chat', message) },
+    close(ws) { ws.unsubscribe('chat') },
+  },
+  fetch(req, server) {
+    if (server.upgrade(req)) return
+    return new Response('Not a WebSocket request')
+  },
+})
+```
+
+## bun.ws vs Node.js ekosystém
+
+Ak prevádzkuješ WebSocket server na Bun, použij natívnu WebSocket podporu `Bun.serve` namiesto npm balíčka `ws`. Natívny bun.ws zvláda viac ako 200 000 správ za sekundu – niekoľkonásobne viac ako balíček `ws` pod Node.
+
+## Reconnection a spoľahlivosť
+
+Browserové WebSocket pripojenia padajú keď sa menia siete. Obsluhuj to.
+
+```typescript
+function connect() {
+  const ws = new WebSocket('wss://example.com/ws')
+  ws.onclose = () => setTimeout(connect, 1000 + Math.random() * 2000)
+  return ws
+}
+```
+
+## Čo používať
+
+**SSE** pre live feedy, AI streamovanie odpovedí, progress bary, notifikácie – čokoľvek server-na-klienta. Bez klientskej knižnice, funguje cez HTTP/2.
+
+**Natívne WebSockets s bun.ws** pre chat, real-time kolaboráciu, multiplayer – čokoľvek obojsmerné kde záleží na priepustnosti.
+
+**Socket.IO** zriedkavo v týchto dňoch. Užitočné keď potrebuješ miestnosti a namespace zo škatule, ale extra overhead a klientský bundle sú ťažšie na ospravedlnenie.

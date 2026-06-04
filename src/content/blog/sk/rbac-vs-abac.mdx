@@ -1,0 +1,115 @@
+---
+title: 'RBAC vs ABAC: Výber správneho modelu riadenia prístupu'
+description: 'Riadenie prístupu na základe rolí je jednoduché a funguje dobre pre väčšinu aplikácií. Riadenie prístupu na základe atribútov ti dáva jemnozrnnú kontrolu, keď samotné roly nestačia. Tu je popis, ako sa rozhodnúť.'
+publishDate: 2025-06-28
+tags: ['security', 'architecture', 'best-practices', 'backend']
+---
+
+Každá aplikácia s viac ako jedným typom používateľa musí rozhodnúť, kto môže vidieť a robiť čo. RBAC (Role-Based Access Control) a ABAC (Attribute-Based Access Control) sú dva dominantné modely. Rovnaký problém, rôzne úrovne granularity.
+
+## RBAC: Roly na prvom mieste
+
+V RBAC definuješ roly a priraďuješ oprávnenia týmto rolám. Používatelia dostávajú roly.
+
+```
+používateľ → rola → oprávnenia
+```
+
+Jednoduchý príklad:
+
+```typescript
+type Role = 'admin' | 'editor' | 'viewer'
+
+const permissions: Record<Role, string[]> = {
+  admin: ['read', 'write', 'delete', 'manage_users'],
+  editor: ['read', 'write'],
+  viewer: ['read'],
+}
+
+function can(user: { role: Role }, action: string): boolean {
+  return permissions[user.role].includes(action)
+}
+```
+
+Toto sa ľahko chápe, ľahko implementuje a ľahko audituje. "Môže tento používateľ mazať príspevky?" je jeden dotaz. Väčšina dashboardov, CMS platforiem a SaaS produktov s jednoduchými štruktúrami tierov funguje dobre s RBAC.
+
+**Kedy RBAC funguje dobre:**
+- Používatelia majú jasné, stabilné roly (admin, člen, hosť)
+- Oprávnenia sa čisto mapujú na tieto roly
+- Pravidlá oprávnení nezávisia od kontextu
+
+**Kde RBAC zlyháva:**
+- "Používatelia môžu upravovať vlastné príspevky, ale nie príspevky ostatných"
+- "Manažéri môžu schvaľovať výdavky do 5 000 €, ale nie nad to"
+- "K dokumentom majú prístup iba používatelia z rovnakého oddelenia"
+
+Každý z týchto požaduje vedieť niečo nad rámec len roly používateľa: kto vlastní zdroj, aká hodnota je zapojená, do akej skupiny používateľ patrí. RBAC to nemôže čisto vyjadriť bez vytvárania explózie vysoko špecifických rolí.
+
+## ABAC: Atribúty všade
+
+V ABAC sú rozhodnutia o prístupe prijímané na základe atribútov – vlastností používateľa, pristupovaného zdroja a prostredia. Nie sú žiadne pevné roly. Píšeš politiky, ktoré tieto atribúty vyhodnocujú v čase požiadavky.
+
+```
+politika(používateľské atribúty + atribúty zdroja + prostredie) → allow/deny
+```
+
+Konkrétny príklad:
+
+```typescript
+type User = { id: string; department: string; level: number }
+type Document = { ownerId: string; department: string; classification: 'public' | 'internal' | 'restricted' }
+
+function canAccess(user: User, doc: Document, action: 'read' | 'edit'): boolean {
+  if (doc.classification === 'public' && action === 'read') return true
+  if (doc.classification === 'internal' && user.department !== doc.department) return false
+  if (action === 'edit') return doc.ownerId === user.id || user.level >= 3
+  if (doc.classification === 'restricted') {
+    return user.department === doc.department && user.level >= 4
+  }
+  return false
+}
+```
+
+Pravidlá ABAC sa čítajú takmer ako prirodzený jazyk. Môžeš vyjadriť nuancované politiky, ktoré RBAC nemôže reprezentovať bez násobenia rolí.
+
+**Kedy je ABAC správna voľba:**
+- Pravidlá prístupu závisia od toho, kto zdroj vlastní
+- Pravidlá sa líšia na základe dátových hodnôt (sumy, dátumy, klasifikácia)
+- Používatelia pokrývajú organizácie, oddelenia alebo tenantov s rôznymi pravidlami
+- Máš požiadavky na zhodu, ktoré vyžadujú auditovateľné záznamy jemnozrnného prístupu
+
+## Porovnanie vedľa seba
+
+| Faktor | RBAC | ABAC |
+|--------|------|------|
+| Zložitosť implementácie | Nízka | Stredná–Vysoká |
+| Zložitosť pochopenia | Nízka | Stredná |
+| Jemnozrnná kontrola | Obmedzená | Vynikajúca |
+| Výkon | Rýchly (vyhľadanie roly) | Pomalší (vyhodnotenie politiky) |
+| Auditná stopa | Per rola | Per rozhodnutie politiky |
+| Vhodný pre | Jednoduché aplikácie, SaaS tiery | Podniky, multi-tenant, zhoda |
+| Škáluje s rastúcimi pravidlami | Roly sa násobia | Politiky zostávajú sémantické |
+
+## Nemusíš si vybrať len jedno
+
+Najpragmatickejší prístup pre väčšinu aplikácií je RBAC s kontrolami vlastníctva zdrojov vrstvených na vrchole.
+
+```typescript
+function can(user: User, action: string, resource?: { ownerId: string }): boolean {
+  if (!roleHasPermission(user.role, action)) return false
+  if (resource && action !== 'read') {
+    return user.role === 'admin' || resource.ownerId === user.id
+  }
+  return true
+}
+```
+
+Toto zvládne 90% reálnych prípadov bez plnej zložitosti policy enginu. Pridaj ABAC, keď pravidlá to skutočne vyžadujú.
+
+## Čo používam
+
+Pre osobné projekty a early-stage SaaS: RBAC s kontrolami vlastníctva. Jednoduché, auditovateľné, hotové za popoludnie.
+
+Pre multi-tenant systémy alebo čokoľvek s požiadavkami na zhodu: správny ABAC policy engine. [Casbin](https://casbin.org) je solidný pre TypeScript – podporuje oba modely a je dobre udržiavaný.
+
+Pasca je budovať RBAC a potom priskrutkovávať ABAC požiadavky dodatočne. Ak tvoje pravidlá prístupu už závisia od atribútov zdrojov alebo organizačného kontextu, navrhni pre to od začiatku namiesto toho, aby si sa dostal do rohu s rolami.
