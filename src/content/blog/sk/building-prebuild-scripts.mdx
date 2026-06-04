@@ -1,0 +1,74 @@
+---
+title: 'Tri prebuild skripty, ktoré robia každý projekt lepším'
+description: 'Automatické sťahovanie písiem s CLS-bezpečnými fallbackmi, generovanie favikonu a PWA ikon z jedného URL obrázka a vykresľovanie OG obrázkov pri builde. Tri skripty, ktoré teraz používam naprieč všetkými svojimi projektmi.'
+publishDate: 2025-12-22
+tags: ['astro', 'open-source', 'performance', 'seo', 'tooling']
+---
+
+Niektoré problémy sa vyskytujú v každom projekte. Potrebuješ self-hostované písma. Potrebuješ favikón. Potrebuješ Open Graph obrázok pre prípad, keď sa stránka zdieľa. Sú to vyriešené problémy, ale stále zaberajú čas, aby sa zakaždým správne nastavili.
+
+Napísal som tri prebuild skripty, ktoré to všetko spracovávajú automaticky. Bežia pred buildom, sú rýchle a akonáhle sú nastavené, nevyžadujú žiadnu údržbu.
+
+## Sťahovanie písiem s CLS-bezpečnými fallbackmi
+
+Google Fonts je ľahká voľba pre typografiu: obrovský výber, nulové nastavenie. Problémy prichádzajú neskôr. Prehliadač každého návštevníka posiela požiadavku na servery Google, čo pridáva latenciu, vyvoláva obavy o súkromie v kontexte GDPR a prispieva k layout shiftu, zatiaľ čo sa písmo načítava.
+
+Skript pre písma rieši všetky tri naraz.
+
+```bash
+bun scripts/generate-font.ts
+```
+
+Prečíta nakonfigurovaný názov písma, načíta Google Fonts CSS s browserovým User-Agentom, aby získal URL adresy `.woff2`, stiahne každú váhu a variant do `public/fonts/` a zapíše lokálny `font.css`, ktorý ukazuje na tieto súbory.
+
+Časť, ktorá eliminuje layout shift, sú fallback metriky. Každé písmo generuje blok `@font-face` s hodnotami `ascent-override`, `descent-override`, `line-gap-override` a `size-adjust`, ktoré spôsobujú, že záložné systémové písmo (Arial) zodpovedá rozmerom načítaného písma. Keď sa vlastné písmo zamení, nič sa nepohybuje.
+
+Ide o rovnaký prístup, ktorý používa [fontaine](https://github.com/unjs/fontaine) z tímu UnJS. Metriky sú vopred vypočítané pre každú rodinu písem, takže sa presne aplikujú bez akéhokoľvek merania za runtime.
+
+## Generovanie ikon z jedného URL obrázka
+
+Produkčná webová aplikácia potrebuje viacero veľkostí ikon: 32×32 favikón pre záložky prehliadača, 180×180 Apple touch ikona pre domovské obrazovky iOS, 192×192 ikona pre Android PWA a 512×512 ikona pre splash obrazovky.
+
+Správa štyroch samostatných obrázkových súborov je otravná. Skript pre ikony vezme jedno URL avatara a vygeneruje ich všetky:
+
+```bash
+bun scripts/generate-icons.ts
+```
+
+Stiahne zdrojový obrázok, zmení jeho veľkosť na každý cieľový rozmer pomocou [sharp](https://sharp.pixelplumbing.com) a zapíše WebP súbory do `public/`. Výstup je:
+
+- `public/icon.webp` (32×32, favikón záložky prehliadača)
+- `public/apple-touch-icon.webp` (180×180, iOS)
+- `public/icon-192.webp` (192×192, Android PWA)
+- `public/icon-512.webp` (512×512, PWA splash)
+
+Ak nie je nakonfigurované žiadne URL avatara, skript vygeneruje tematický kruh pomocou akcentovej farby a farby pozadia projektu. Výsledkom je brandovaná ikona, ktorá zodpovedá vizuálnej identite webu bez potreby vlastného obrázka.
+
+## Generovanie OG obrázkov: dva prístupy
+
+Open Graph obrázky sú náhľady, ktoré sa zobrazia, keď je URL zdieľaná na Twitter/X, Slacku, LinkedIne alebo inej platforme. Bez nich dostaneš prázdnu kartu alebo náhodný screenshot. So správnym dostaneš brandovaný náhľad, ktorý núti ľudí kliknúť.
+
+Existujú dva hlavné prístupy pre ich generovanie pri builde.
+
+**Satori** je knižnica od Vercelu, ktorá vykresľuje React stromy komponentov do SVG, ktoré sa potom konvertuje do PNG. Beží v Node.js/Bun a dobre funguje pre jednoduché rozloženia. Výstup je ostrý a API je povedomé, ak už premýšľaš v Reacte. Obmedzením je, že komplexné rozloženia môžu byť ťažké na ladenie, pretože píšeš HTML-like JSX, ktorý sa vykresľuje inak ako prehliadač.
+
+**Takumi** je renderer postavený na Ruste, ktorý sa používa v mojom projekte [@germondai/links](https://github.com/germondai/links). Je rýchlejší ako možnosti postavené na JavaScripte a produkuje konzistentný výstup. V projektoch Next.js sa integruje s konvenciou `opengraph-image.tsx`.
+
+Pre tento blog sú OG obrázky statické WebP súbory servírované z `public/`. Pre projekt links sú vykresľované pri builde pomocou Takumi, aby vytvorili brandovanú kartu s gradientom profilu, avatarom, menom, handle, bio a akcentovými pruhmi.
+
+## Automatické spúšťanie
+
+V `package.json` sa tieto skripty reťazia dohromady ako krok `prebuild`:
+
+```json
+{
+  "scripts": {
+    "prebuild": "bun scripts/generate-icons.ts && bun scripts/generate-font.ts",
+    "build": "astro build"
+  }
+}
+```
+
+Keď spustíš `bun run build`, ikony a písma sa najprv vygenerujú, potom sa web buildí so všetkým na mieste. Žiadne ručné kroky, žiadne súbory na commitovanie, žiadny drift medzi prostrediami.
+
+Všetky tri skripty sú súčasťou projektu [@germondai/blog](https://github.com/germondai/blog) a možno ich adaptovať pre akékoľvek statické nastavenie webu.

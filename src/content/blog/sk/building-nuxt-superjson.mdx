@@ -1,0 +1,59 @@
+---
+title: 'nuxt-superjson: Zachovanie komplexných typov naprieč celým API'
+description: 'JavaScript serializácia ticho zahadzuje objekty Date, Sety, Mapy a ďalšie. nuxt-superjson je Nuxt modul, ktorý zapája SuperJSON do tvojich API endpointov, takže komplexné typy prežijú celý round trip.'
+publishDate: 2025-09-01
+tags: ['nuxt', 'typescript', 'open-source', 'api']
+---
+
+Existuje nenápadný bug, ktorý nakoniec uhryzne takmer každého Nuxt vývojára. Pošleš objekt `Date` zo servera. Na klientovi príde ako string. Nevšimol si sa, ako sa zmenil, a teraz si musíš pamätať volať `new Date()` na každý dátum, ktorý dostaneš z API.
+
+Hlavnou príčinou je `JSON.stringify`. Štandardný JSON nevie, čo je `Date`. Jednoducho ho serializuje na ISO string a pokračuje ďalej. To isté sa stane so `Set`, `Map`, `BigInt`, `undefined`, `Infinity` a niekoľkými ďalšími JavaScript typmi, ktoré neprejdú cez JSON round trip.
+
+[nuxt-superjson](https://github.com/germondai/nuxt-superjson) je Nuxt modul, ktorý zapája [SuperJSON](https://github.com/blitz-js/superjson) do tvojich API endpointov, takže tento problém zmizne.
+
+## Ako to funguje
+
+SuperJSON je náhrada za JSON, ktorá zachováva informácie o typoch. `Date` vstúpi ako `Date` a vyjde ako `Date`. `Set` zostane `Setom`. Serializačný formát obsahuje anotáciu typu vedľa dát a deserializačný krok ju používa na rekonštrukciu pôvodnej hodnoty.
+
+Modul vystavuje štyri nástroje:
+
+**`toSuperJSON`**: serializuj odpoveď na strane servera. Použij ho vo svojich API route handleroch:
+
+```typescript
+export default defineEventHandler((event) => {
+  return toSuperJSON({
+    createdAt: new Date(),
+    tags: new Set(['typescript', 'nuxt']),
+  })
+})
+```
+
+**`fromSuperJSON`**: deserializuj odpoveď na strane klienta a rekonštruuj pôvodné typy.
+
+**`$superFetch`**: náhrada za `$fetch`, ktorá automaticky deserializuje SuperJSON odpovede.
+
+**`useSuperFetch`**: composable verzia pre použitie vo Vue komponentoch.
+
+## Prečo na tom záleží
+
+Problém je dostatočne nenápadný, že ho mnoho tímov nezaznamená, kým nepríde hlásenie o bugu z produkcie. Porovnávanie dátumov zlyhá. Operácia so setom nefunguje. Opravou je zvyčajne "ručne konvertovať všetko všade," čo je druh riešenia, ktorý časom sám vytvára problémy.
+
+S nuxt-superjson to rieši serializačná vrstva. Tvoje typy sú to, za čo si ich vyhlásil, na oboch stranách API.
+
+## Inštalácia
+
+```bash
+bun add @germondai/nuxt-superjson
+```
+
+Potom ho pridaj do svojho `nuxt.config.ts`:
+
+```typescript
+export default defineNuxtConfig({
+  modules: ['@germondai/nuxt-superjson'],
+})
+```
+
+To je všetko. Utility `toSuperJSON`, `fromSuperJSON`, `$superFetch` a `useSuperFetch` sú dostupné automaticky.
+
+Zdrojový kód je na [GitHube](https://github.com/germondai/nuxt-superjson) pod licenciou MIT.
