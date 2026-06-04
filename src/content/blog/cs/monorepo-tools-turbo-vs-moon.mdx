@@ -1,0 +1,88 @@
+---
+title: 'Turbo vs Moon: Výběr task runneru pro monorepo, který ti sedí'
+description: 'Oba nástroje řeší stejný problém s cachováním a orchestrací v monorepu. Zde jsou jejich rozdíly, kde každý z nich vyhrává a jak přemýšlím o výběru mezi nimi.'
+publishDate: 2026-02-14
+tags: ['tooling', 'monorepo', 'developer-experience', 'open-source']
+---
+
+Spouštění úloh napříč monorepo bez plýtvání časem na práci, kterou jsi již udělal, je celý problém, který [Turborepo](https://turbo.build/repo) i [Moonrepo](https://moonrepo.dev) řeší. Jen ho řeší jinak, a rozdíly záleží v závislosti na tom, jak tvé monorepo skutečně vypadá.
+
+## Co oba nástroje dělají
+
+Monorepa s mnoha balíčky sdílejí známou bolest: změníš jeden balíček a potřebuješ přebuildit, otestovat a typeckovat nejen ten balíček, ale každý jiný balíček, který na něm závisí – přičemž děláš co nejméně práce pro balíčky, které se nezměnily.
+
+Oba Turbo i Moon to řeší pomocí:
+
+- Lokální cache úloh klíčovaná hashy souborů. Pokud se nic nezměnilo, výstup úlohy je obnoven z cache místo opakovaného spuštění.
+- Vzdálené cachování, takže spolupracovníci a CI sdílejí stejnou cache.
+- Pořadí úloh vědomé závislostí. `build` v balíčku B běží po `build` v balíčku A, pokud B závisí na A.
+
+Tato základní pravidla jsou nyní nutností. Rozdíly se ukazují ve filozofii konfigurace, předpokladech ekosystému a jak hluboko chce nástroj jít.
+
+## Turborepo
+
+Turbo je postaven Vercelem a napsán v Rustu. Integruje se s npm/yarn/pnpm workspace ekosystémem, který pravděpodobně již máš. Konfigurace žije v `turbo.json` v kořeni repozitáře.
+
+```json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "dist/**"]
+    },
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "lint": {}
+  }
+}
+```
+
+Syntaxe `^build` znamená "spusť `build` ve všech upstream závislostech nejprve." Tato jedna konvence zvládá většinu pořadí závislostí bez explicitní deklarace.
+
+Rozsah Turba je záměrně úzký. Orchestruje úlohy. Nespravuje, kterou verzi Node používáš, které nástroje jsou nainstalovány nebo jak balíčky v repozitáři spolu souvisejí nad rámec toho, co je deklarováno v `package.json`. Pokud je tvůj workspace již nastaven konvenčním způsobem, Turbo se připojí bez přestrukturování čehokoliv.
+
+Vzdálené cachování je řešeno buď přes Vercel (zdarma pro osobní použití, placené ve škále) nebo self-hosted možností.
+
+## Moonrepo
+
+Moon je task runner a build systém napsaný v Rustu, který chce vlastnit více monorepo workflow. Definuje projekty s `moon.yml` per-balíček a workspace konfiguraci v `.moon/workspace.yml`.
+
+```yaml
+# moon.yml v balíčku
+tasks:
+  build:
+    command: bun run build
+    deps:
+      - ^:build
+    inputs:
+      - src/**/*
+    outputs:
+      - dist
+  test:
+    command: bun test
+    deps:
+      - build
+```
+
+Moon sleduje vstupy explicitně, což znamená, že přesně ví, na kterých souborech úloha závisí, a invaliduje cache s jemnější granularitou než Turbův přístup hash-souboru-celého-balíčku.
+
+Správa toolchainu je místo, kde se Moon nejvíce odlišuje. Deklaruješ, která verze Node (nebo Bun, nebo Deno) projekt vyžaduje, a Moon zajistí, že je nainstalována. To řeší skutečný problém ve velkých monorepu, kde různé projekty legitimně potřebují různé verze runtime. Turbo to vůbec nedělá.
+
+Moon má také koncept vlastnictví na úrovni projektu, správce kódu a tagů, které jdou za orchestraci úloh do správy projektu.
+
+## Kde každý vyhrává
+
+**Turbo vyhrává**, když máš konvenční JavaScript workspace a chceš přidat cachování úloh bez větších změn. Konfigurace je minimální, konvence odpovídají tomu, co většina týmů již dělá, a křivka učení je téměř plochá. Pokud tvé monorepo běží na npm/yarn/pnpm workspaces a máš standardní skripty `build`, `test`, `lint`, Turbo funguje první den.
+
+**Moon vyhrává**, když potřebuješ více kontroly. Explicitní deklarace vstupů/výstupů, verzování toolchainu per-projekt a podpora více jazyků (Moon zvládá Rust, Go a další jazyky mimo JS) ho dělají lepší volbou pro heterogenní repozitáře nebo týmy, které chtějí, aby nástroj vynucoval konzistenci za pouhé cachování úloh.
+
+Moonova konfigurace je těžší. Každý projekt má vlastní `moon.yml` a workspace konfigurace přidává další vrstvu. Tato investice se vyplatí ve škále. Pro malé monorepo se to může cítit jako extra práce.
+
+## Co používám
+
+Pro čistě JavaScript/TypeScript monorepa, kde vše sleduje standardní konvence, je Turbo můj výchozí bod. Drží se stranou a cachování prostě funguje.
+
+Pro projekty, kde potřebuji pinování toolchainu nebo jemnější kontrolu nad tím, co se počítá jako cache vstup, je Moon správný nástroj. Extra konfigurace je cena, která stojí za zaplacení, když potřebuješ to, co poskytuje.
+
+Oba jsou opravdu dobré nástroje. Výběr je méně o kvalitě a více o tom, kolik svého workflow chceš, aby nástroj vlastnil.

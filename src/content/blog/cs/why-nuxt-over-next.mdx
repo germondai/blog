@@ -1,0 +1,50 @@
+---
+title: 'Proč se stále vracím k Nuxt místo Next.js a každého jiného meta-frameworku'
+description: 'Po budování projektů s Next.js, SvelteKit a Astro se stále vracím k Nuxt. Vue 3 Composition API, ekosystém modulů a vývojářský zážitek se dohromady skládají do něčeho, co je těžké překonat.'
+publishDate: 2025-07-28
+tags: ['nuxt', 'vue', 'web-development', 'opinion']
+---
+
+Každý frontend vývojář musí nakonec vybrat meta-framework a žít s důsledky. Dodal jsem projekty v Next.js, SvelteKit a Astro. Astro používám pro weby s těžkým obsahem (tento blog na něm běží). Ale pro full-stack webové aplikace se stále vracím k [Nuxt](https://nuxt.com).
+
+Zde je to, co mě stále přitahuje zpět.
+
+## Vue 3 Composition API se cítí přirozeněji
+
+Model hooků Reactu je chytrý, ale má hrany. Pravidla hooků existují, protože je React potřebuje, ne protože usnadňují uvažování o kódu. Nemůžeš podmíněně volat hook. Musíš spravovat dependency arrays v `useEffect`. `useCallback` a `useMemo` se stanou nutnými, jakmile ti záleží na výkonu.
+
+Composition API Vue 3 řeší stejné problémy bez těchto omezení. `ref` a `reactive` jsou přímočaré. `watchEffect` a `watch` se chovají předvídatelně. Neexistuje žádná mentální zátěž ohledně toho, kdy se věci re-renderují. Kód se čte jako JavaScript.
+
+Pro někoho, kdo píše hodně TypeScript, je také typová inference Vue výborná. Props, emity a composables jsou všechny prvotřídní TypeScript občané bez potřeby dalších wrapper utilit.
+
+## File-based routing, který se chová
+
+File-based routing Nuxt funguje tak, jak očekáváš. Soubory v `pages/` se stávají routami. Vnořené adresáře se stávají vnořenými routami. Dynamické segmenty používají závorky. Pojmenovaná rozložení automaticky obalují stránky.
+
+Next.js to také dělá s App Routerem, ale App Router zavedl dostatek nových konceptů (Server Components, `use client`, rozlišení mezi async a non-async komponenty), že se cítí jako učení nového frameworku na vrcholu starého. Mentální zátěž je reálná.
+
+## Ekosystém modulů
+
+[Nuxt Modules](https://nuxt.com/modules) registr je jednou z nejlepších věcí o ekosystému. Moduly se při buildu instalují do frameworku a konfigurují se samy. Přidáš `@nuxtjs/i18n` do své konfigurace a internacionalizace je zapojená. Přidáš `@sidebase/nuxt-auth` a autentizace je zpracována. Vzor je konzistentní napříč moduly.
+
+Next.js má také ekosystém balíčků, ale balíčky se neintegrují na úrovni frameworku stejným způsobem. Zapojuješ je ručně. To funguje, ale Nuxt přístup snižuje plochu pro špatnou konfiguraci.
+
+## Flexibilita renderování bez myšlení na úrovni frameworku
+
+Nuxt podporuje SSR, SSG, ISR (přes Nitro), client-only a hybridní per-route renderování z jedné codebase. Deklaruješ mód per stránce s `definePageMeta`. Není potřeba přestrukturovat projekt nebo rozdělit do samostatných aplikací, když se požadavky změní.
+
+`useAsyncData` a `useFetch` zpracovávají data fetching s SSR-aware hydratací zabudovanou. Stav je sdílen mezi serverem a klientem automaticky. Nemusíš přemýšlet o tom, zda něco běží na serveru nebo klientovi, pokud to nepotřebuješ.
+
+## Nuxt DevTools
+
+[Nuxt DevTools](https://devtools.nuxt.com) je browserový panel, který ti v reálném čase ukazuje každou stránku, komponentu, composable a modul ve tvé aplikaci. Můžeš zkoumat strom tras, vizualizovat vztahy komponent, zkontrolovat, jaké moduly jsou načteny, a vidět server logy bez opuštění prohlížeče.
+
+## Kde jiné frameworky vyhrávají
+
+Astro je lepší pro statické obsahové weby, kde chceš nula JavaScriptu ve výchozím nastavení a maximální skóre Lighthouse s minimálním úsilím. Tento blog je z tohoto důvodu postaven na Astro.
+
+Next.js má větší ekosystém třetích stran tutoriálů, Stack Overflow odpovědí a komunitních zdrojů. Pokud stavíš produkt, který potřebují udržovat jiní lidé bez onboardingu, argument obeznámenosti je reálný.
+
+SvelteKit je skutečně zajímavý a Svelte syntaxe je nejergonomičtější ze všech. Dosahuju k němu méně často, protože ekosystém je menší a přístup Svelte k reaktivitě se znovu mění ve Svelte 5.
+
+Pro vše ostatní se vracím k Nuxt.

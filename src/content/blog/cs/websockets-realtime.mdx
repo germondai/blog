@@ -1,0 +1,115 @@
+---
+title: 'WebSockets vs SSE vs Socket.IO: Real-time web v praxi'
+description: 'Tři způsoby, jak odesílat data ze serveru na klienta v reálném čase. Zde je popis, co každý z nich dělá, kde každý z nich sedí a jak bun.ws mění výkonový obraz pro WebSocket servery.'
+publishDate: 2025-10-06
+tags: ['websockets', 'real-time', 'backend', 'architecture', 'bun']
+---
+
+Live chat, kolaborativní editování, dashboardy aktualizující se bez obnovování – všechny tyto potřebují server, aby odesílal data klientovi. Existují tři hlavní způsoby, jak to udělat, a nejsou zaměnitelné.
+
+## Jak každý z nich funguje
+
+Přemýšlej o normálním webovém požadavku jako o telefonním hovoru, kde mluvíš a pak zavěsíš a čekáš, až zavolá druhá osoba zpět. To je HTTP. Real-time potřebuje něco více jako udržovat linku otevřenou.
+
+**Server-Sent Events (SSE)** udržují připojení otevřené, takže server může odesílat zprávy kdykoliv chce. Klient nemůže posílat zprávy zpět přes stejné připojení. Jednosměrné, server na klienta.
+
+**WebSockets** jsou plné obousměrné připojení. Jakmile je navázáno, kterákoliv strana může kdykoliv poslat zprávu druhé s nízkou latencí. To je to, co chatovací aplikace, multiplayer hry a kolaborativní nástroje používají.
+
+**Socket.IO** je knihovna postavená na vrcholu WebSockets, která přidává auto-reconnection, místnosti, pojmenování událostí a fallbacky. Řeší skutečné problémy, ale přidává váhu a má vlastní vrstvu protokolu na vrcholu WebSockets.
+
+## Porovnání vedle sebe
+
+| Funkce | SSE | WebSockets | Socket.IO |
+|--------|-----|-----------|-----------|
+| Směr | Server → Klient pouze | Obousměrné | Obousměrné |
+| Protokol | HTTP | WS/WSS | Vlastní (na vrcholu WS) |
+| Auto-reconnect | Zabudováno v prohlížeči | Ruční | Zabudováno |
+| Místnosti/namespace | Ne | Ruční | Zabudováno |
+| Podpora prohlížeče | Výborná | Výborná | Vyžaduje klientskou lib |
+| Proxy/firewall problémy | Zřídka | Občas | Zvládá fallbacky |
+| Overhead | Nízký | Nízký | Vyšší |
+| Nejlepší pro | Feedy, notifikace | Chat, hry, kolaborace | Komplexní real-time |
+
+## Kdy použít SSE
+
+SSE je podhodnocený. Pokud tvůj případ použití je server-na-klienta pouze – live activity feedy, aktualizace pokroku, AI streamovací odpovědi, notifikace – SSE je jednodušší než WebSockets a funguje se standardním HTTP/2. Není potřeba žádné vyjednávání handshake, žádný extra protokol a prohlížeč se automaticky reconnectuje, pokud připojení selže.
+
+```typescript
+// Nitro / Nuxt serverová trasa
+export default defineEventHandler(async (event) => {
+  const stream = createEventStream(event)
+
+  const interval = setInterval(async () => {
+    await stream.push({ data: JSON.stringify({ time: Date.now() }) })
+  }, 1000)
+
+  stream.onClosed(() => clearInterval(interval))
+
+  return stream.send()
+})
+```
+
+```typescript
+// Klient
+const source = new EventSource('/api/stream')
+source.onmessage = (e) => console.log(JSON.parse(e.data))
+```
+
+## Kdy použít WebSockets
+
+Cokoliv obousměrného: chat kde klient posílá zprávy, kolaborativní editování kde více uživatelů mění stejný dokument, multiplayer hry kde pozice hráče teče oběma směry.
+
+```typescript
+// Bun WebSocket server
+const server = Bun.serve({
+  port: 3000,
+  websocket: {
+    open(ws) {
+      ws.subscribe('chat')
+    },
+    message(ws, message) {
+      server.publish('chat', message)
+    },
+    close(ws) {
+      ws.unsubscribe('chat')
+    },
+  },
+  fetch(req, server) {
+    if (server.upgrade(req)) return
+    return new Response('Not a WebSocket request')
+  },
+})
+```
+
+## bun.ws vs Node.js ekosystém
+
+Pokud provozuješ WebSocket server na Bun, použij nativní WebSocket podporu `Bun.serve` místo npm balíčku `ws`. Rozdíl je podstatný.
+
+Nativní bun.ws zvládá přes 200 000 zpráv za sekundu na skromném hardwaru – několikanásobně více než balíček `ws` pod Node.
+
+Socket.IO přidává vrstvu protokolu overhead, což je důvod, proč je pomalejší, ale dává ti místnosti, namespace a automatickou reconnection. Zda je tento trade-off stojí za to závisí na tom, zda tyto funkce potřebuješ.
+
+## Reconnection a spolehlivost
+
+Browserová WebSocket připojení padají, když se mění sítě. Obsluhuj to.
+
+```typescript
+// Client-side reconnection
+function connect() {
+  const ws = new WebSocket('wss://example.com/ws')
+
+  ws.onclose = () => {
+    setTimeout(connect, 1000 + Math.random() * 2000)
+  }
+
+  return ws
+}
+```
+
+## Co dosahovat
+
+**SSE** pro live feedy, AI streamování odpovědí, progress bary, notifikace – cokoliv server-na-klienta. Žádná klientská knihovna, funguje přes HTTP/2.
+
+**Nativní WebSockets s bun.ws** pro chat, real-time kolaboraci, multiplayer – cokoliv obousměrného kde záleží na propustnosti.
+
+**Socket.IO** zřídka v těchto dnech. Užitečné když potřebuješ místnosti a namespace ze škatulky, ale extra overhead a klientský bundle jsou těžší k ospravedlnění, když je Bunovo nativní WS takto rychlé.

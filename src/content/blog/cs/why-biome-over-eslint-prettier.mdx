@@ -1,0 +1,95 @@
+---
+title: 'Proč jsem nahradil ESLint a Prettier Biomem (a neotočil se zpět)'
+description: 'Dva nástroje, dva konfigurační soubory, dvě sady konfliktujících pravidel a pomalý CI pipeline. Biome nahradil vše to jedním rychlým nástrojem postaveným na Rustu. Zde je popis, proč byl přechod v retrospektivě zřejmý.'
+publishDate: 2026-01-09
+tags: ['tooling', 'developer-experience', 'open-source', 'typescript']
+---
+
+Po roky bylo standardní nastavení pro linting a formátování JavaScriptu: ESLint pro linting, Prettier pro formátování, a pak hromada konfigurace, aby spolu nebojovaly. Fungovalo to, ale nikdy to nebylo příjemné.
+
+[Biome](https://biomejs.dev) nahradil vše to pro mě v jednom kroku.
+
+## Problém s ESLint plus Prettier
+
+Oba nástroje jsou individuálně dobré v tom, co dělají. Problém je kombinace.
+
+ESLint i Prettier mají názory na styl kódu. Jsou v konfliktu. Potřebuješ `eslint-config-prettier`, aby ses zbavil formátovacích pravidel ESLint, aby je Prettier mohl zpracovávat. Potřebuješ `eslint-plugin-prettier`, pokud chceš, aby se porušení Prettier zobrazovala jako ESLint chyby. Udržuješ dva konfigurační soubory, dvě sady závislostí a aktualizuješ je v různých plánech.
+
+Samotné konfigurační soubory jsou problémem. `.eslintrc.json` (nebo `.eslintrc.js`, nebo `eslint.config.mjs`, což je ještě jiný formát) plus `.prettierrc` plus `.prettierignore` plus možná `prettier.config.js`. Každý projekt hromadí mírně odlišné verze těchto souborů a "zkopírovat z posledního projektu" způsobuje drift.
+
+Rychlost je dalším problémem. ESLint na středně velké codebase trvá několik sekund. V pre-commit hooku je to dostatečné k tomu, aby ho vývojáři obcházeli. V CI přidává minuty napříč měsícem PR.
+
+## Co je Biome
+
+[Biome](https://biomejs.dev) je jediný nástroj postavený na Rustu, který dělá linting, formátování a řazení importů. Jeden binár, jeden konfigurační soubor (`biome.json`), jeden příkaz.
+
+Je rychlý způsobem, který mění chování. Lint a kontrola formátování celého zdrojového adresáře velkého projektu trvá méně než 100 milisekund. Pre-commit hooky končí, než si je všimneš. CI kroky, které dříve trvaly 30 sekund, trvají 2.
+
+Moje `biome.json` pro typický TypeScript projekt:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": { "noUnusedVariables": "error" },
+      "suspicious": { "noExplicitAny": "error" },
+      "style": {
+        "useConst": "error",
+        "useTemplate": "error",
+        "noNonNullAssertion": "warn"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded"
+    }
+  }
+}
+```
+
+Žádné pluginy, žádné rozšířené konfigurace, žádné neshody verzí. Pravidla jsou zabudována.
+
+## OXC: příští generace
+
+Stojí za zmínku: [OXC](https://oxc.rs) (Oxidation Compiler) je budován s důrazem na ještě větší rychlost než Biome a kompatibilitu s existujícími ESLint pravidly. Ještě není na místě, kde by nahradil Biome pro každodenní použití, ale trajektorie je zajímavá.
+
+Prozatím je Biome praktická volba. Pokrytí pravidel je solidní, VS Code extension funguje dobře a rychlost je skutečně znatelná.
+
+## Migrace
+
+Pro většinu TypeScript projektů migrace z ESLint a Prettier na Biome trvá méně než hodinu.
+
+1. Nainstaluj Biome: `bun add -d @biomejs/biome`
+2. Inicializuj: `bunx biome init`
+3. Spusť migrační pomocník: `bunx biome migrate eslint --write` a `bunx biome migrate prettier --write`
+4. Odstraň ESLint, Prettier a jejich konfigurační soubory
+5. Aktualizuj skripty v `package.json`
+
+## Co nyní spouštím v každém projektu
+
+```json
+{
+  "scripts": {
+    "lint": "biome check ./src",
+    "lint:fix": "biome check --write ./src",
+    "format": "biome format --write ./src"
+  }
+}
+```
+
+`lint` pro CI. `lint:fix` lokálně pro automatickou opravu všeho v jednom průchodu. Pre-commit hook spouští `lint:fix` před každým commitem.
+
+Jeden nástroj. Jeden konfigurační soubor. Dostatečně rychlý, aby ses o to nestaral.

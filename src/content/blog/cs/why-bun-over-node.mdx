@@ -1,0 +1,56 @@
+---
+title: 'Proč jsem nahradil Node.js a npm s Bun napříč všemi svými projekty'
+description: 'Bun je runtime, správce balíčků, test runner a bundler v jednom bináru. Po jeho provozování v produkci po měsíce, zde je upřímný přehled toho, kde vyhrává a na co si dávat pozor.'
+publishDate: 2025-09-15
+tags: ['bun', 'tooling', 'developer-experience', 'typescript', 'open-source']
+---
+
+Přepnul jsem každý projekt, který aktivně vyvíjím, na [Bun](https://bun.sh) – runtime, správce balíčků, test runner a vše. Nebyla to reakce na virální benchmark. Bylo to řadou malých rozhodnutí, která se nahromadila, dokud Node.js nebyl outsider na mém stroji.
+
+Zde je to, co se skutečně změnilo a co jsem se naučil.
+
+## Rychlost instalace je reálná
+
+První zřejmá věc je instalace balíčků. `bun install` na projektu s velkým lockfile souborem běží za sekundu nebo dvě. Stejný projekt s `npm install` nebo `pnpm install` trvá patnáct až třicet sekund v závislosti na stavu cache.
+
+To záleží více, než to zní. Vyskytuje se v CI runs, v Docker buildech, při onboardingu někoho nového do repozitáře a pokaždé, když přepínáš větve a potřebuješ odsouhlasit balíčky. Za den vývoje se to přičítá k smysluplnému množství času ne stráveného čekáním.
+
+Rychlost pochází z toho, že správce balíčků Bun je napsán v Zig, používá systémová volání přímo a udržuje globální cache balíčků, která sdílí nainstalované balíčky napříč projekty místo jejich kopírování pokaždé.
+
+## TypeScript bez ceremoničnosti
+
+Bun nativně spouští TypeScript. Žádné `ts-node`, žádné `tsx`, žádný krok kompilace pro skripty.
+
+```bash
+bun scripts/generate-icons.ts
+```
+
+To funguje. TypeScript je spuštěn přímo. Pro prebuild skripty v mém blogu – generování písem, generování ikon – to znamená, že skripty jsou jen TypeScript soubory, které běží jako shell skripty, s plnou typovou bezpečností a IDE podporou, bez kroku buildu.
+
+## bun test
+
+Bun dodává test runner kompatibilní s API Jest. Stejná struktura `describe`, `it`, `expect`, `beforeEach` funguje. Migrace z Jest je obvykle mechanická.
+
+Runner je rychlý, protože běží v Bun a protože standardně paralelizuje. Testovací suite, která v Jest trvala 8 sekund, běží za méně než 2 v Bun.
+
+Není k dispozici ekosystém pluginů tak hluboký jako Jest, a některé pokročilé matchery potřebují workaroundy. Pro většinu projektů je to, co dodává Bun, dostatečné.
+
+## Interop správce balíčků
+
+Bun čte `package.json` přesně tak, jak to dělá npm. Chápe workspaces ve stejném formátu. Generuje lockfile `bun.lockb` místo `package-lock.json`, ale v CI můžeš také použít `--frozen-lockfile` stejně.
+
+Jeden behaviorální rozdíl, který stojí za vědomí: Bun je ve výchozím nastavení přísnější ohledně rozlišení peer závislostí. Projekty, které měly tiše špatné peer závislosti pod npm, někdy vyvolávají varování nebo chyby pod Bun. To jsou skutečné problémy – Bun je jen hlásí místo tichého hádání.
+
+## Kde Node.js stále záleží
+
+Kompatibilita Bun s Node.js je velmi vysoká, ale ne úplná. Většina npm balíčků funguje bez úprav. Některé balíčky, které používají Node-specifické vnitřnosti, mají kompatibilitní quirky.
+
+Pokud migruješ existující produkční systém se složeným stromem závislostí, otestuj kompatibilitu před commitem. Pro greenfield projekty jsem nenarazil na zeď.
+
+## Praktický výsledek
+
+Každý projekt, který vlastním, běží na Bun. Časy instalace jsou dostatečně rychlé, abych na ně přestal myslet. TypeScript skripty běží bez kroku buildu. Testy běží bez čekání. Sjednocený binár znamená jednu méně kategorii "jakou verzi tohoto nástroje mám nainstalovanou."
+
+Migrace je nízký riziko. Přidej Bun, aktualizuj své skripty v `package.json` na používání `bun` místo `node` nebo `npm`, a spusť testovací suite. Většinu času to okamžitě funguje.
+
+[Dokumentace Bun](https://bun.sh/docs) je kompletní. Začni tam, pokud chceš specifika o jakémkoliv z API nebo poznámkách o kompatibilitě.
