@@ -1,0 +1,106 @@
+---
+title: 'Nuxt + Nitro – wnioskowanie typów: bezpieczeństwo jak tRPC bez konfiguracji'
+description: 'Nuxt automatycznie importuje typy tras serwera do klienta. Dostajesz kompletne bezpieczeństwo typów od końca do końca między API a frontendem bez dodatkowej biblioteki, bez generowania kodu i bez schematu do utrzymywania.'
+publishDate: 2025-08-19
+tags: ['nuxt', 'typescript', 'nitro', 'web-development', 'dx']
+---
+
+Piszesz trasę API na serwerze. Wywołujesz ją z `useFetch` lub `$fetch` na kliencie. TypeScript zna dokładny kształt odpowiedzi – żadnego tRPC, żadnego generowania kodu, żadnej dodatkowej konfiguracji.
+
+Jeśli używałeś tRPC z Reactem, Nuxt daje ci to samo z mniejszą konfiguracją. Różnica polega na tym, że to po prostu działa bez oddzielnego routera, adaptera i providera do podpięcia.
+
+## Jak to działa
+
+Nuxt używa [Nitro](https://nitro.build) jako silnika serwera. Nitro może wnioskować o typie zwracanym przez każdą trasę API i udostępniać tę informację warstwie klienta Nuxt.
+
+Trasa serwera w `server/api/posts.get.ts`:
+
+```typescript
+export default defineEventHandler(async () => {
+  const posts = await db.select().from(postsTable)
+  return posts
+})
+```
+
+Na kliencie, `useFetch` automatycznie wie co to zwraca:
+
+```typescript
+// data jest typowane jako Post[] - nie potrzeba adnotacji typów
+const { data } = await useFetch('/api/posts')
+```
+
+TypeScript wywnioskuje typ zwracany bezpośrednio z handlera. Jeśli zmienisz kształt tego, co trasa zwraca, TypeScript oznaczy każde miejsce wywołania, które teraz nie pasuje.
+
+## Mechanizm
+
+Nuxt generuje deklaracje TypeScript dla wszystkich tras serwera do `.nuxt/types/nitro.d.ts`. Te deklaracje mapują ścieżki tras do ich wnioskowanych typów odpowiedzi. `useFetch` jest typowany żeby te deklaracje konsumować, więc typ zwracany wywołania `useFetch` płynie bezpośrednio z typu zwracanego handlera serwera.
+
+Żadnego schematu. Żadnego kroku generowania kodu, który musisz pamiętać uruchomić. Żadnego oddzielnego pakietu klienta do instalacji. Typy aktualizują się gdy zapisujesz plik.
+
+## Typowane parametry trasy i query
+
+Wnioskowanie idzie dalej. Parametry handlera są też typowane.
+
+```typescript
+// server/api/posts/[id].get.ts
+export default defineEventHandler(async (event) => {
+  const { id } = getRouterParams(event)  // typowane jako string
+  const post = await db.query.posts.findFirst({
+    where: eq(posts.id, Number(id)),
+  })
+  if (!post) throw createError({ statusCode: 404 })
+  return post
+})
+```
+
+```typescript
+// klient - data to Post | null
+const { data } = await useFetch(`/api/posts/${postId}`)
+```
+
+Parametry query, parsowanie body z `readBody<T>` i nagłówki też mają typowane pomocniki.
+
+## Porównanie z tRPC
+
+tRPC rozwiązuje ten sam problem dla aplikacji React/Next.js. Definiujesz procedury na serwerze i klient wywołuje je z pełnym bezpieczeństwem typów. To doskonałe rozwiązanie, zwłaszcza dla złożonych aplikacji z wieloma procedurami.
+
+Podejście Nuxt jest lżejsze:
+
+| Aspekt | tRPC | Nuxt + Nitro |
+|--------|------|-------------|
+| Konfiguracja | Router, adapter, provider | Nic extra |
+| Wywołania klienta | `trpc.posts.query()` | `useFetch('/api/posts')` |
+| Źródło typów | Wyeksportowany typ routera | Auto-generowane deklaracje |
+| Kompatybilność REST | Nie (tylko RPC) | Tak (standardowe HTTP) |
+| Zewnętrzne wywołania API | Wymaga wrappera | Zwykły fetch działa |
+| Walidacja | Zod/Valibot wymagane | Opcjonalne |
+
+Dla projektu Nuxt, wbudowane wnioskowanie to właściwe domyślne. Dostajesz bezpieczeństwo typów w całym stosie i twoje API pozostaje standardowym REST API, które może wywołać dowolny klient, nie endpoint specyficzny dla tRPC.
+
+## Dodawanie walidacji
+
+Wnioskowanie jest wywnioskowane, nie wymuszone. Jeśli chcesz walidacji runtime (co powinieneś dla zewnętrznych danych wejściowych), dodaj ją za pomocą biblioteki schematu.
+
+```typescript
+import { z } from 'zod'
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1),
+  content: z.string().min(10),
+})
+
+export default defineEventHandler(async (event) => {
+  const body = await readValidatedBody(event, CreatePostSchema.parse)
+  // body jest typowane jako { title: string; content: string }
+  const post = await db.insert(posts).values(body).returning()
+  return post[0]
+})
+```
+
+`readValidatedBody` to narzędzie Nitro, które waliduje i zwraca typowane body. Zwalidowany typ automatycznie płynie do klienta.
+
+## Co to oznacza w praktyce
+
+Piszesz kod serwera, wywołujesz go z klienta, TypeScript utrzymuje je zsynchronizowane. Żadnego zarządzania schematem runtime, żadnych dodatkowych narzędzi do utrzymywania.
+
+Jest to mniej explicytne niż tRPC, ale też niewidoczne – typy po prostu działają i zauważasz je tylko gdy coś się zmieni na serwerze i klient natychmiast to oznaczy.

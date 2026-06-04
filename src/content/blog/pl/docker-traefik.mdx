@@ -1,0 +1,128 @@
+---
+title: 'Dlaczego wszystko uruchamiam za Traefik zamiast Nginx'
+description: 'Traefik czyta twoje etykiety Docker i konfiguruje się automatycznie. SSL odnawia się samo. Nowe serwisy pojawiają się bez dotykania pliku konfiguracyjnego. Oto dlaczego zastąpił Nginx w moim stacku.'
+publishDate: 2025-07-15
+tags: ['docker', 'devops', 'self-hosting', 'infrastructure']
+---
+
+Uruchamianie wielu serwisów na serwerze z Nginx to problem archeologii konfiguracyjnej. Każdy nowy serwis potrzebuje nowego bloku serwera, nowego wpisu odnawiania certyfikatu SSL i przeładowania. Pomyl konfigurację i wszystko pada. Pomyl odnowienie SSL i rzeczy się psują o 3 w nocy.
+
+[Traefik](https://traefik.io) to reverse proxy, która czyta etykiety Docker i konfiguruje się sama. Opisujesz, czego chcesz na kontenerze, a Traefik wymyśla routing. SSL przez Let's Encrypt odnawia się automatycznie. Nowe wdrożenia nie wymagają żadnych zmian w konfiguracji proxy.
+
+## Co Traefik robi inaczej
+
+Z Nginx, proxy i serwis są konfigurowane oddzielnie. Piszesz blok serwera dla każdego serwisu, zarządzasz certyfikatami SSL przez Certbot i pamiętasz o przeładowaniu Nginx po zmianach. Proxy w ogóle nie wie o Dockerze.
+
+Z Traefik, proxy odkrywa serwisy przez Docker API. Każdy kontener mówi Traefikowi jak do niego routować przez etykiety. Dodaj kontener z właściwymi etykietami i staje się dostępny. Usuń kontener i znika. Traefik widzi zmianę w sekundach.
+
+```
+┌─────────────────────────────────────────┐
+│              Internet                   │
+└──────────────────┬──────────────────────┘
+                   │ HTTPS (443)
+         ┌─────────▼─────────┐
+         │      Traefik      │  ← czyta etykiety Docker
+         │   (auto SSL/TLS)  │    odkrywa serwisy
+         └───┬───────────┬───┘    routuje ruch
+             │           │
+    ┌────────▼──┐  ┌─────▼──────┐
+    │  app:3000 │  │  api:8080  │
+    └───────────┘  └────────────┘
+```
+
+## Działająca konfiguracja
+
+`docker-compose.yml` dla samego Traefika:
+
+```yaml
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.email=ty@przyklad.pl
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./acme.json:/acme.json
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+I dla dowolnego serwisu, który chcesz wystawić:
+
+```yaml
+services:
+  my-app:
+    image: my-app:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.my-app.rule=Host(`app.przyklad.pl`)
+      - traefik.http.routers.my-app.entrypoints=websecure
+      - traefik.http.routers.my-app.tls.certresolver=letsencrypt
+      - traefik.http.services.my-app.loadbalancer.server.port=3000
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+To cała konfiguracja dla `app.przyklad.pl` z ważnym SSL. Żadnej konfiguracji Nginx. Żadnego zadania cron Certbot. Traefik podnosi to bez restartu.
+
+## SSL, które odnawia się samo
+
+Z Nginx + Certbot, odnawianie certyfikatu to zadanie cron, które musisz skonfigurować i weryfikować czy działa. Z Traefik, integracja ACME jest wbudowana. Certyfikaty są żądane przy pierwszym dostępie i automatycznie odnawiane przed wygaśnięciem. Plik `acme.json` to miejsce, gdzie Traefik przechowuje certyfikaty między restartami.
+
+Jedna rzecz, którą trzeba zrobić dobrze: stwórz `acme.json` z `chmod 600` przed pierwszym uruchomieniem, bo inaczej Let's Encrypt odrzuci lokalizację przechowywania.
+
+## Dodawanie nowego serwisu
+
+Gdy Traefik działa, dodanie nowego serwisu to tylko dodanie etykiet do pliku compose dla tego serwisu. Żadnych zmian w własnej konfiguracji Traefika. Żadnego restartu proxy. Nowy serwis staje się dostępny w sekundach od uruchomienia kontenera.
+
+Dla stacku z pięcioma lub dziesięcioma serwisami jest to transformacyjne. Proxy to infrastruktura, którą konfigurujesz raz. Potem każdy zespół lub projekt wdraża się niezależnie.
+
+## Middleware w etykietach
+
+Middleware Traefik obsługuje takie rzeczy jak przekierowania HTTP→HTTPS, basic auth, rate limiting i nagłówki - wszystko w etykietach.
+
+```yaml
+labels:
+  # Przekierowanie HTTP na HTTPS
+  - traefik.http.middlewares.redirect-https.redirectscheme.scheme=https
+  - traefik.http.routers.my-app-http.middlewares=redirect-https
+
+  # Dodanie nagłówków bezpieczeństwa
+  - traefik.http.middlewares.secure-headers.headers.stsSeconds=31536000
+  - traefik.http.middlewares.secure-headers.headers.contentTypeNosniff=true
+```
+
+## Kiedy Nginx jest nadal sensowny
+
+Dla jednego serwisu lub gdy chcesz serwować pliki statyczne z dysku, Nginx jest prostszy. Traefik dodaje wartość gdy uruchamiasz wiele serwisów na jednej maszynie i chcesz żeby pojawiały się i znikały bez dotykania konfiguracji proxy.
+
+Dla stron statycznych nadal używam Nginx wewnątrz kontenera (obraz `nginx:alpine` serwujący `dist/`). Traefik tylko routuje ruch HTTPS do tego kontenera Nginx. Dobrze się uzupełniają.
+
+## Dashboard
+
+Traefik ma panel webowy pokazujący wszystkie routery, serwisy i middleware, które odkrył. Przydatny do debugowania dlaczego serwis nie routuje zgodnie z oczekiwaniami.
+
+```yaml
+command:
+  - --api.dashboard=true
+  - --api.insecure=true  # tylko do lokalnego dev, w produkcji chroń uwierzytelnianiem
+```
+
+To jedno z tych narzędzi, które wydaje się nadmiernie skomplikowane dla jednego serwisu i oczywiście właściwe gdy uruchamiasz więcej niż dwa.

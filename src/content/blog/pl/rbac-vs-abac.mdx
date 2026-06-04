@@ -1,0 +1,115 @@
+---
+title: 'RBAC vs ABAC: Wybór właściwego modelu kontroli dostępu'
+description: 'Kontrola dostępu oparta na rolach jest prosta i dobrze działa dla większości aplikacji. Kontrola dostępu oparta na atrybutach daje ci szczegółową kontrolę gdy same role nie wystarczają. Oto jak zdecydować.'
+publishDate: 2025-06-28
+tags: ['security', 'architecture', 'best-practices', 'backend']
+---
+
+Każda aplikacja z więcej niż jednym typem użytkownika musi zdecydować kto może widzieć i robić co. RBAC (Role-Based Access Control) i ABAC (Attribute-Based Access Control) to dwa dominujące modele. Ten sam problem, różne poziomy szczegółowości.
+
+## RBAC: Role na pierwszym miejscu
+
+W RBAC definiujesz role i przypisujesz uprawnienia do tych ról. Użytkownicy dostają role.
+
+```
+użytkownik → rola → uprawnienia
+```
+
+Prosty przykład:
+
+```typescript
+type Role = 'admin' | 'editor' | 'viewer'
+
+const permissions: Record<Role, string[]> = {
+  admin: ['read', 'write', 'delete', 'manage_users'],
+  editor: ['read', 'write'],
+  viewer: ['read'],
+}
+
+function can(user: { role: Role }, action: string): boolean {
+  return permissions[user.role].includes(action)
+}
+```
+
+To jest łatwe do zrozumienia, łatwe do implementacji i łatwe do audytowania. "Czy ten użytkownik może usuwać posty?" to jedno wyszukiwanie. Większość dashboardów, platform CMS i produktów SaaS z prostymi strukturami poziomów dobrze działa z RBAC.
+
+**Kiedy RBAC działa dobrze:**
+- Użytkownicy mają jasne, stabilne role (admin, członek, gość)
+- Uprawnienia czystości mapują się na te role
+- Reguły uprawnień nie zależą od kontekstu
+
+**Gdzie RBAC zawodzi:**
+- "Użytkownicy mogą edytować własne posty, ale nie posty innych osób"
+- "Menedżerowie mogą zatwierdzać wydatki poniżej 5000 zł, ale nie powyżej"
+- "Dokumenty mogą być dostępne tylko dla użytkowników z tego samego działu"
+
+Każdy z tych wymaga znajomości czegoś więcej niż tylko roli użytkownika: kto jest właścicielem zasobu, jaka wartość jest zaangażowana, do jakiej grupy należy użytkownik. RBAC nie może tego wyrazić czysto bez tworzenia eksplozji hipersprecyficznych ról.
+
+## ABAC: Atrybuty wszędzie
+
+W ABAC decyzje dostępu są podejmowane na podstawie atrybutów – właściwości użytkownika, dostępowanego zasobu i środowiska. Nie ma stałych ról. Piszesz polityki, które te atrybuty oceniają w czasie żądania.
+
+```
+polityka(atrybuty użytkownika + atrybuty zasobu + środowisko) → allow/deny
+```
+
+Konkretny przykład:
+
+```typescript
+type User = { id: string; department: string; level: number }
+type Document = { ownerId: string; department: string; classification: 'public' | 'internal' | 'restricted' }
+
+function canAccess(user: User, doc: Document, action: 'read' | 'edit'): boolean {
+  if (doc.classification === 'public' && action === 'read') return true
+  if (doc.classification === 'internal' && user.department !== doc.department) return false
+  if (action === 'edit') return doc.ownerId === user.id || user.level >= 3
+  if (doc.classification === 'restricted') {
+    return user.department === doc.department && user.level >= 4
+  }
+  return false
+}
+```
+
+Reguły ABAC czytają się prawie jak język naturalny. Możesz wyrazić niuansowane polityki, których RBAC nie może reprezentować bez mnożenia ról.
+
+**Kiedy ABAC jest właściwym wyborem:**
+- Reguły dostępu zależą od tego kto jest właścicielem zasobu
+- Reguły różnią się na podstawie wartości danych (kwoty, daty, klasyfikacja)
+- Użytkownicy obejmują organizacje, działy lub najemców z różnymi regułami
+- Masz wymagania compliance wymagające audytowalnych dzienników szczegółowego dostępu
+
+## Porównanie obok siebie
+
+| Czynnik | RBAC | ABAC |
+|---------|------|------|
+| Złożoność implementacji | Niska | Średnia–Wysoka |
+| Złożoność zrozumienia | Niska | Średnia |
+| Szczegółowa kontrola | Ograniczona | Doskonała |
+| Wydajność | Szybka (wyszukiwanie roli) | Wolniejsza (ewaluacja polityki) |
+| Ścieżka audytu | Per rola | Per decyzja polityki |
+| Dobre dla | Prostych aplikacji, tierów SaaS | Przedsiębiorstw, multi-tenant, compliance |
+| Skaluje z rosnącymi regułami | Role się mnożą | Polityki pozostają semantyczne |
+
+## Nie musisz wybierać tylko jednego
+
+Najbardziej pragmatyczne podejście dla większości aplikacji to RBAC z nakładką kontroli własności zasobów.
+
+```typescript
+function can(user: User, action: string, resource?: { ownerId: string }): boolean {
+  if (!roleHasPermission(user.role, action)) return false
+  if (resource && action !== 'read') {
+    return user.role === 'admin' || resource.ownerId === user.id
+  }
+  return true
+}
+```
+
+To obsługuje 90% rzeczywistych przypadków bez pełnej złożoności silnika polityk. Dodaj ABAC gdy reguły naprawdę tego wymagają.
+
+## Czego używam
+
+Dla projektów osobistych i SaaS we wczesnej fazie: RBAC z kontrolami własności. Proste, audytowalne, gotowe w jedno popołudnie.
+
+Dla systemów multi-tenant lub czegokolwiek z wymaganiami compliance: właściwy silnik polityk ABAC. [Casbin](https://casbin.org) jest solidny dla TypeScript – obsługuje oba modele i jest dobrze utrzymywany.
+
+Pułapką jest budowanie RBAC a potem przykręcanie wymagań ABAC później. Jeśli twoje reguły dostępu już zależą od atrybutów zasobów lub kontekstu organizacyjnego, projektuj pod to od początku zamiast wpędzać się w kąt z rolami.

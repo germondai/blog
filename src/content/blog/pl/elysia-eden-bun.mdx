@@ -1,0 +1,89 @@
+---
+title: 'Elysia i Eden: Kompleksowe bezpieczeństwo typów od końca do końca dla Bun'
+description: 'Elysia to framework webowy natywny dla Bun z wynikami wydajności, które sprawiają, że większość frameworków Node.js wygląda wolno. Eden daje ci bezpieczeństwo typów klienta w stylu tRPC z mniejszą konfiguracją – i możesz użyć Zod, Valibot lub dowolnego walidatora Standard Schema.'
+publishDate: 2025-10-30
+tags: ['bun', 'elysia', 'typescript', 'web-development', 'performance']
+---
+
+[Elysia](https://elysiajs.com) to framework webowy TypeScript zbudowany specjalnie dla Bun. Jest szybki w sposób, który różni się od "szybki jak na framework JavaScript" – wyniki benchmarków stawiają go przed Fastify, Hono i większością innych alternatyw Node.js o znaczny margines, ponieważ nie działa na Node.js.
+
+[Eden](https://elysiajs.com/eden/overview) to towarzysząca biblioteka klienta Elysia. Daje ci kompleksowe bezpieczeństwo typów od końca do końca między twoim serwerem Elysia a dowolnym klientem TypeScript – podobnie do tego, co tRPC robi dla ekosystemu Node.js, ale ze znacznie mniejszą konfiguracją.
+
+## Minimalny serwer Elysia
+
+```typescript
+import { Elysia } from 'elysia'
+import { z } from 'zod'
+
+const CreatePostSchema = z.object({
+  title: z.string().min(1),
+  content: z.string(),
+})
+
+const app = new Elysia()
+  .get('/hello', () => 'Hello from Elysia')
+  .post('/posts', ({ body }) => createPost(body), {
+    body: CreatePostSchema,
+  })
+  .listen(3000)
+
+export type App = typeof app
+```
+
+Elysia obsługuje walidatory [Standard Schema](https://standardschema.dev) – Zod, Valibot, ArkType i TypeBox wszystkie działają. Wyeksportowany `typeof app` jest tym, czego Eden używa do wnioskowania typów na kliencie. Żadnego osobnego pliku typów, żadnego generowania kodu.
+
+## Eden na kliencie
+
+```typescript
+import { treaty } from '@elysiajs/eden'
+import type { App } from './server'
+
+const api = treaty<App>('http://localhost:3000')
+
+// W pełni typowane - nie są potrzebne adnotacje typów
+const { data, error } = await api.hello.get()
+const { data: post } = await api.posts.post({
+  title: 'Hello World',
+  content: 'Mój pierwszy post',
+})
+```
+
+`post` jest typowany jako cokolwiek twój serwer zwraca. `title` i `content` są walidowane względem schematu – TypeScript zgłosi błąd jeśli pominiesz wymagane pole lub przekażesz zły typ. Typy pochodzą bezpośrednio z `typeof app` serwera, bez osobnego pliku schematu do oddzielnego utrzymania i bez kroku generowania kodu do uruchomienia.
+
+## Porównanie z tRPC
+
+| Aspekt | tRPC | Elysia + Eden |
+|--------|------|---------------|
+| Runtime | Node.js / Edge | Bun (głównie) |
+| Konfiguracja | Router + adapter + provider | Wystarczy wyeksportować `typeof app` |
+| Wywołania klienta | `trpc.posts.create.mutate({})` | `api.posts.post({})` |
+| Walidacja | Zod/Valibot (zewnętrzny) | Zod, Valibot, ArkType, TypeBox |
+| Kompatybilność REST | Nie | Tak |
+| Wydajność | Powiązany z Node | Natywny dla Bun |
+| Dojrzałość ekosystemu | Bardzo dojrzały | Szybko rośnie |
+
+tRPC ma większy ekosystem i więcej zasobów społeczności, co ma znaczenie dla złożonych projektów lub zespołów nieznajomych Elysia. Eden jest prostszy do skonfigurowania i szybszy w praktyce gdy już używasz Bun.
+
+## Wyniki wydajności
+
+Elysia konsekwentnie plasuje się wśród najwydajniejszych frameworków webowych JavaScript/TypeScript:
+
+```
+Żądania/s (w przybliżeniu, zależy od benchmarku):
+┌──────────────────┬─────────────┐
+│ Elysia (Bun)     │  ~250,000+  │
+│ Hono (Bun)       │  ~200,000+  │
+│ Fastify (Node)   │  ~80,000    │
+│ Express (Node)   │  ~40,000    │
+└──────────────────┴─────────────┘
+```
+
+Przepaść między frameworkami natywnymi dla Bun a frameworkami Node.js nie dotyczy głównie kodu frameworka – chodzi o runtime. Obsługa HTTP w Bun jest zaimplementowana w Zig na poziomie systemowym zamiast w JavaScript.
+
+## Kiedy wybrać Elysia
+
+Nowy backend TypeScript na Bun: Elysia. DX jest czysty, wydajność jest lepsza niż cokolwiek opartego na Node, a Eden eliminuje problem synchronizacji typów bez całej ceremonii tRPC.
+
+Konieczność działania na Node lub Edge: Hono to najbliższy odpowiednik – podobne łańcuchowe API, szersze wsparcie runtime, nieco mniej ścisła integracja klienta.
+
+Istniejący projekt tRPC: nie warto migrować. Dla czegokolwiek nowego na Bun to mój punkt startowy.

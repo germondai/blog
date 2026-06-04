@@ -1,0 +1,109 @@
+---
+title: 'Jeden VPS rządzi wszystkim: Self-hosting zamiast płacenia za każdą usługę'
+description: 'Jeden VPS za 20 USD/miesiąc może zastąpić dziesiątki płatnych subskrypcji SaaS. Oto co hostuję, ile to kosztuje i jak Traefik + Docker sprawiają, że zarządzanie wszystkim jest proste.'
+publishDate: 2025-05-25
+tags: ['self-hosting', 'devops', 'infrastructure', 'docker']
+---
+
+Domyślna ścieżka wdrażania projektów webowych to jedna zarządzana usługa na jeden problem. Vercel do hostingu. Supabase do bazy danych. Upstash do Redis. S3 lub R2 do przechowywania. Każda z osobna jest wygodna. Razem szybko się sumują – a każda to zależność, której nie możesz w pełni kontrolować.
+
+Przeniosłem wszystko co prowadzę na jeden VPS.
+
+## Co może obsłużyć VPS za 20 USD/miesiąc
+
+Serwer z 4 vCPU, 8 GB RAM i 160 GB SSD – co Hetzner sprzedaje za około 15–20 EUR miesięcznie – może komfortowo obsłużyć:
+
+| Usługa | Co zastępuje |
+|--------|-------------|
+| Caddy lub Traefik | Nginx, zarządzanie SSL |
+| PostgreSQL | Supabase, PlanetScale, RDS |
+| Redis | Upstash, Elasticache |
+| MinIO | S3, R2, Cloudflare |
+| Gitea | GitHub (prywatne repo) |
+| Plausible | Google Analytics |
+| Umami | Mixpanel |
+| n8n | Zapier, Make |
+| Mailpit | Mailtrap (dev) |
+| Wiele aplikacji Nuxt | Vercel, Netlify |
+| Wiele stron statycznych | Cloudflare Pages |
+
+To nie jest lista kompromisów. To narzędzia klasy produkcyjnej, których używają też duże firmy. Różnica polega na tym, że uruchamiasz je sam.
+
+## Porównanie kosztów
+
+Realistyczny stos SaaS dla solowego dewelopera lub małego zespołu:
+
+```
+Vercel Pro        20 USD/miesiąc
+PlanetScale       29 USD/miesiąc
+Upstash Redis     10 USD/miesiąc
+Cloudflare R2      5 USD/miesiąc
+Analytics (płatne) 9 USD/miesiąc
+─────────────────────────
+Razem             73 USD/miesiąc  →  876 USD/rok
+```
+
+VPS, który to wszystko obsłuży:
+
+```
+Hetzner CX32     18 EUR/miesiąc
+Backblaze B2      2 USD/miesiąc (kopie zapasowe)
+─────────────────────────
+Razem            ~22 USD/miesiąc  →  ~264 USD/rok
+```
+
+Co ważniejsze, posiadasz dane, kontrolujesz konfigurację i nic nie znika, bo startup zmienił kierunek lub VC zdecydował, że produkt nie osiągnie skali.
+
+## Jak Docker + Traefik sprawiają, że to jest zarządzalne
+
+Uruchamianie dziesięciu usług na jednej maszynie brzmi jak koszmar administracji systemów z 2010 roku. Z Docker Compose i Traefik tak nie jest.
+
+Każda usługa to plik `docker-compose.yml` we własnym katalogu. Traefik czyta etykiety Docker i automatycznie routuje ruch. Dodanie nowej usługi to dodanie pliku compose z etykietami i uruchomienie `docker compose up -d`. Usunięcie to `docker compose down`.
+
+```yaml
+# przykład: uruchamianie Plausible Analytics
+services:
+  plausible:
+    image: ghcr.io/plausible/community-edition:v2
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.plausible.rule=Host(`analytics.przyklad.pl`)
+      - traefik.http.routers.plausible.tls.certresolver=letsencrypt
+    environment:
+      - DATABASE_URL=postgres://...
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+```
+
+SSL jest obsługiwane przez Traefik automatycznie. Żadnego zadania cron Certbot. Żadnego ręcznego zarządzania certyfikatami.
+
+## Infrastruktura, która ma znaczenie
+
+**Kopie zapasowe**: rzecz, która sprawia, że self-hosting jest wykonalny, to automatyczne kopie zapasowe. Uruchamiam dzienny skrypt, który zrzuca wszystkie bazy Postgres, tarballuje dane MinIO i wysyła wszystko do Backblaze B2. Rclone obsługuje transfer. Skrypt kopii uruchamia się jako cron job i wysyła powiadomienie o awarii. Testuj swoje przywracania.
+
+**Monitorowanie**: minimalna instancja Uptime Kuma działająca na tym samym serwerze (lub idealnie drugim) monitoruje wszystkie usługi i wysyła alerty przez Telegram lub e-mail gdy coś jest niedostępne. Bezpłatna, open source, jeden kontener.
+
+**Aktualizacje**: `docker compose pull && docker compose up -d` w każdym katalogu usługi. Prosty skrypt może iterować przez wszystkie katalogi compose. Dla łatek bezpieczeństwa skonfiguruj automatyczne unattended upgrades na hostującym OS.
+
+## Z czego rezygnujesz
+
+Zarządzane usługi obsługują skalowanie za ciebie. Jeśli twoja baza Postgres nagle musi obsługiwać 10× ruchu, zarządzana usługa ją skaluje. Na VPS ręcznie ulepszasz serwer lub dodajesz repliki.
+
+Dla większości projektów osobistych i małych firm to nie jest realne ograniczenie. Hetzner CX52 (8 vCPU, 16 GB RAM) obsługuje więcej jednoczesnych użytkowników niż większość aplikacji kiedykolwiek zobaczy. Jeśli naprawdę potrzebujesz skalowania na poziomie bazy danych, masz wolumeny ruchu gdzie koszty zarządzanego rozwiązania mają sens.
+
+Rezygnujesz też z wygody wypolerowanych dashboardów dla każdej usługi. Kompromis: dokładnie rozumiesz co robi twój stos i nic cię nie zaskoczy.
+
+## Jak zacząć
+
+Zacznij małe. Przenieś jedną rzecz.
+
+Wybierz jedną usługę SaaS, za którą płacisz i która ma solidną self-hosted alternatywę – Plausible zamiast Google Analytics, Gitea zamiast prywatnych repozytoriów GitHub, MinIO zamiast S3. Uruchom to na najtańszym VPS jaki znajdziesz, prowadź przez miesiąc i sprawdź jak się czuje to doświadczenie.
+
+Celem nie jest self-hostowanie wszystkiego od pierwszego dnia. Chodzi o zrozumienie co naprawdę prowadzi twoje projekty, żebyś mógł podejmować świadome decyzje gdzie płacisz za zarządzane usługi a gdzie posiadasz infrastrukturę.
+
+[Awesome Self-Hosted](https://github.com/awesome-selfhosted/awesome-selfhosted) to najlepszy punkt startowy do znajdowania alternatyw dla czegokolwiek za co obecnie płacisz.

@@ -1,0 +1,85 @@
+---
+title: 'Dlaczego zastąpiłem ESLint i Prettier Biomem (i nie wróciłem)'
+description: 'Dwa narzędzia, dwa pliki konfiguracyjne, dwa zestawy konfliktujących reguł i wolny pipeline CI. Biome zastąpił to wszystko jednym szybkim narzędziem opartym na Rust. Oto dlaczego przejście było oczywiste z perspektywy czasu.'
+publishDate: 2026-01-09
+tags: ['tooling', 'developer-experience', 'open-source', 'typescript']
+---
+
+Przez lata standardowa konfiguracja lintowania i formatowania JavaScriptu to: ESLint do lintowania, Prettier do formatowania, a potem stos konfiguracji, żeby ze sobą nie walczyły. Działało, ale nigdy nie było przyjemne.
+
+[Biome](https://biomejs.dev) zastąpił to wszystko dla mnie w jednym kroku.
+
+## Problem z ESLint plus Prettier
+
+Oba narzędzia są indywidualnie dobre w tym co robią. Problem to kombinacja.
+
+ESLint i Prettier mają opinie o stylu kodu. Są w konflikcie. Potrzebujesz `eslint-config-prettier` żeby wyłączyć reguły formatowania ESLint, żeby Prettier mógł je obsługiwać. Potrzebujesz `eslint-plugin-prettier` jeśli chcesz żeby naruszenia Prettier pojawiały się jako błędy ESLint. Utrzymujesz dwa pliki konfiguracyjne, dwa zestawy zależności i aktualizujesz je w różnych harmonogramach.
+
+Same pliki konfiguracyjne to problem. `.eslintrc.json` plus `.prettierrc` plus `.prettierignore` plus możliwie `prettier.config.js`. Każdy projekt gromadzi nieco inne wersje tych plików, a "kopiuj z ostatniego projektu" powoduje dryf.
+
+Szybkość to kolejna kwestia. ESLint na średniej wielkości codebase zajmuje kilka sekund. W hooku pre-commit to wystarczy żeby deweloperzy go omijali. W CI dodaje minuty przez miesiąc PR.
+
+## Czym jest Biome
+
+[Biome](https://biomejs.dev) to pojedyncze narzędzie oparte na Rust, które robi lintowanie, formatowanie i sortowanie importów. Jeden plik binarny, jeden plik konfiguracyjny (`biome.json`), jedno polecenie.
+
+Jest szybkie w sposób, który zmienia zachowanie. Sprawdzenie lintera i formatu całego katalogu źródłowego dużego projektu zajmuje poniżej 100 milisekund. Hooki pre-commit kończą się zanim je zauważysz. Kroki CI, które zajmowały 30 sekund, zajmują 2.
+
+Mój `biome.json` dla typowego projektu TypeScript:
+
+```json
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": { "noUnusedVariables": "error" },
+      "suspicious": { "noExplicitAny": "error" },
+      "style": {
+        "useConst": "error",
+        "useTemplate": "error",
+        "noNonNullAssertion": "warn"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "trailingCommas": "all",
+      "semicolons": "asNeeded"
+    }
+  }
+}
+```
+
+## Migracja
+
+Dla większości projektów TypeScript, migracja z ESLint i Prettier do Biome zajmuje poniżej godziny.
+
+1. Zainstaluj Biome: `bun add -d @biomejs/biome`
+2. Zainicjuj: `bunx biome init`
+3. Uruchom pomocnik migracji: `bunx biome migrate eslint --write` i `bunx biome migrate prettier --write`
+4. Usuń ESLint, Prettier i ich pliki konfiguracyjne
+5. Zaktualizuj skrypty w `package.json`
+
+## Co teraz uruchamiam w każdym projekcie
+
+```json
+{
+  "scripts": {
+    "lint": "biome check ./src",
+    "lint:fix": "biome check --write ./src",
+    "format": "biome format --write ./src"
+  }
+}
+```
+
+Jedno narzędzie. Jeden plik konfiguracyjny. Wystarczająco szybkie żeby o tym nie myśleć.

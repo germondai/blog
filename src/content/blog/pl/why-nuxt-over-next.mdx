@@ -1,0 +1,46 @@
+---
+title: 'Dlaczego ciągle sięgam po Nuxt zamiast Next.js i każdego innego meta-frameworka'
+description: 'Po budowaniu projektów z Next.js, SvelteKit i Astro, ciągle wracam do Nuxt. Vue 3 Composition API, ekosystem modułów i doświadczenie deweloperskie składają się na coś trudnego do pobicia.'
+publishDate: 2025-07-28
+tags: ['nuxt', 'vue', 'web-development', 'opinion']
+---
+
+Każdy frontend developer musi w końcu wybrać meta-framework i żyć z konsekwencjami. Dostarczyłem projekty w Next.js, SvelteKit i Astro. Używam Astro dla stron z ciężką treścią (ten blog na nim działa). Ale dla full-stack aplikacji webowych ciągle wracam do [Nuxt](https://nuxt.com).
+
+Oto co ciągle mnie przyciąga.
+
+## Vue 3 Composition API czuje się bardziej naturalnie
+
+Model hooków Reacta jest sprytny, ale ma krawędzie. Reguły hooków istnieją bo React ich potrzebuje, nie dlatego że ułatwiają rozumowanie o kodzie. Nie możesz warunkowo wywoływać hooka. Musisz zarządzać tablicami zależności w `useEffect`. `useCallback` i `useMemo` stają się konieczne gdy zależy ci na wydajności.
+
+Composition API Vue 3 rozwiązuje te same problemy bez tych ograniczeń. `ref` i `reactive` są proste. `watchEffect` i `watch` zachowują się przewidywalnie. Nie ma mentalnego obciążenia dotyczącego kiedy rzeczy się re-renderują. Kod czyta się jak JavaScript.
+
+Dla kogoś piszącego dużo TypeScript, wnioskowanie typów Vue jest też doskonałe. Props, emity i composables są wszystkie obywatelami TypeScript pierwszej klasy bez potrzeby dodatkowych narzędzi opakowujących.
+
+## Routing oparty na plikach, który działa zgodnie z oczekiwaniami
+
+Routing oparty na plikach Nuxt działa tak jak oczekujesz. Pliki w `pages/` stają się trasami. Zagnieżdżone katalogi stają się zagnieżdżonymi trasami. Dynamiczne segmenty używają nawiasów. Nazwane układy automatycznie owijają strony.
+
+Next.js też to robi teraz z App Routerem, ale App Router wprowadził wystarczająco nowych konceptów (Server Components, `use client`, rozróżnienie między async i non-async komponentami), że czuje się jak uczenie nowego frameworka na szczycie starego.
+
+## Ekosystem modułów
+
+Rejestr [Nuxt Modules](https://nuxt.com/modules) to jedna z najlepszych rzeczy w ekosystemie. Moduły instalują się do frameworka w czasie kompilacji i konfigurują się same. Dodajesz `@nuxtjs/i18n` do swojej konfiguracji i internacjonalizacja jest podpięta. Dodajesz `@sidebase/nuxt-auth` i uwierzytelnianie jest obsługiwane. Wzorzec jest spójny w różnych modułach.
+
+## Elastyczność renderowania bez myślenia na poziomie frameworka
+
+Nuxt obsługuje SSR, SSG, ISR (przez Nitro), client-only i hybrydowe renderowanie per-trasa z jednej bazy kodu. Deklarujesz tryb per stronę z `definePageMeta`. Nie ma potrzeby restrukturyzacji projektu lub dzielenia na osobne aplikacje gdy zmieniają się wymagania.
+
+## Nuxt DevTools
+
+[Nuxt DevTools](https://devtools.nuxt.com) to panel przeglądarki pokazujący w czasie rzeczywistym każdą stronę, komponent, composable i moduł w twojej aplikacji. Możesz sprawdzać drzewo tras, wizualizować relacje komponentów, sprawdzać jakie moduły są załadowane i widzieć logi serwera bez opuszczania przeglądarki.
+
+## Gdzie inne frameworki wygrywają
+
+Astro jest lepsze dla statycznych stron z treścią gdzie chcesz zero JavaScriptu domyślnie i maksymalne wyniki Lighthouse z minimalnym wysiłkiem. Ten blog jest zbudowany na Astro z tego powodu.
+
+Next.js ma większy ekosystem tutoriali stron trzecich, odpowiedzi Stack Overflow i zasobów społeczności. Jeśli budujesz produkt, który inni ludzie muszą utrzymywać bez onboardingu, argument znajomości jest realny.
+
+SvelteKit jest naprawdę interesujący i składnia Svelte jest najbardziej ergonomiczna ze wszystkich. Sięgam po niego rzadziej bo ekosystem jest mniejszy i podejście Svelte do reaktywności zmienia się znowu w Svelte 5.
+
+Dla wszystkiego innego, wracam do Nuxt.

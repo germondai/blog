@@ -1,0 +1,118 @@
+---
+title: 'Web scraping w praktyce: Puppeteer, Stealth, Proxies i Cheerio'
+description: 'Od podstawowego pobierania HTML po pełną automatyzację headless browsera ze wtyczkami stealth i rotującymi proxy – praktyczny przewodnik zbierania danych z sieci bez blokowania.'
+publishDate: 2024-08-13
+tags: ['web-scraping', 'puppeteer', 'nodejs', 'automation', 'typescript']
+---
+
+Web scraping to jedna z tych umiejętności, która brzmi prosto dopóki nie uruchomisz go na prawdziwej stronie. Strona zwraca HTML w twojej przeglądarce, ale wysyła CAPTCHA do twojego skryptu. Twoje IP jest blokowane po 50 żądaniach. Dane, których chcesz, są ładowane przez JavaScript po wyrenderowaniu strony, więc zwykłe HTTP fetch nie dostaje niczego użytecznego.
+
+Scrapowalem wiele stron z wielu powodów: budowanie datasetów, monitorowanie zmian cen, archiwizowanie treści, zasilanie potoków danych.
+
+## Najprostszy przypadek: fetch i parsowanie
+
+Jeśli strona serwuje treści jako statyczny HTML, nie potrzebujesz przeglądarki. Pobierz stronę i ją sparsuj.
+
+```typescript
+import * as cheerio from 'cheerio'
+
+const res = await fetch('https://example.com/products')
+const html = await res.text()
+const $ = cheerio.load(html)
+
+const titles: string[] = []
+$('.product-title').each((_, el) => {
+  titles.push($(el).text().trim())
+})
+```
+
+[Cheerio](https://cheerio.js.org) daje ci jQuery-like API dla HTML. Szybkie, lekkie, bez przeglądarki.
+
+## Kiedy potrzebujesz wykonania JavaScript: Puppeteer
+
+Nowoczesne strony renderują treści w przeglądarce używając JavaScript. HTML który bezpośrednio pobierasz to często tylko szkielet bez danych. Headless przeglądarka faktycznie uruchamia JavaScript i daje ci to co zobaczyłby użytkownik.
+
+[Puppeteer](https://pptr.dev) programatycznie steruje instancją headless Chrome.
+
+```typescript
+import puppeteer from 'puppeteer'
+
+const browser = await puppeteer.launch({ headless: true })
+const page = await browser.newPage()
+
+await page.goto('https://example.com', { waitUntil: 'networkidle2' })
+await page.waitForSelector('.product-list')
+
+const items = await page.evaluate(() => {
+  return Array.from(document.querySelectorAll('.product-title'))
+    .map(el => el.textContent?.trim())
+})
+
+await browser.close()
+```
+
+[Playwright](https://playwright.dev) to nowoczesna alternatywa – lepsza obsługa wielu przeglądarek i czystsze API.
+
+## Blokowanie: dlaczego się dzieje
+
+Strony wykrywają scrapery przez kilka sygnałów:
+
+- **Brakujące fingerprints przeglądarki**: prawdziwa przeglądarka wysyła dziesiątki nagłówków i API JavaScript, których podstawowy skrypt nie wysyła.
+- **Wzorce żądań**: 100 żądań w 10 sekund z jednego IP to nie ludzkie zachowanie.
+- **Brakujące ciasteczka i stan sesji**: ludzie gromadzą ciasteczka w całej sesji; skrypty często zaczynają od nowa za każdym razem.
+
+## Tryb stealth
+
+[puppeteer-extra](https://github.com/berstend/puppeteer-extra) to wrapper dodający obsługę wtyczek. Wtyczka stealth łata instancję headless Chrome, żeby usunąć sygnały szukane przez systemy anty-bot.
+
+```typescript
+import puppeteer from 'puppeteer-extra'
+import StealthPlugin from 'puppeteer-extra-plugin-stealth'
+
+puppeteer.use(StealthPlugin())
+const browser = await puppeteer.launch({ headless: true })
+```
+
+To jedno dodanie omija większość podstawowego wykrywania botów.
+
+## Proxy i rotacja IP
+
+Nawet ze stealth, scraping na dużą skalę z jednego IP wyzwala limity szybkości. Naprawą jest rotacja przez różne adresy IP.
+
+```typescript
+const proxies = [
+  'http://proxy1.example.com:8080',
+  'http://proxy2.example.com:8080',
+  'http://proxy3.example.com:8080',
+]
+
+const proxy = proxies[Math.floor(Math.random() * proxies.length)]
+const browser = await puppeteer.launch({ args: [`--proxy-server=${proxy}`] })
+```
+
+## Elegancka obsługa limitów szybkości
+
+Randomizuj opóźnienia. Człowiek nie klika linków dokładnie w 1-sekundowych odstępach.
+
+```typescript
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
+
+for (const url of urls) {
+  await page.goto(url)
+  await sleep(2000 + Math.random() * 4000)
+}
+```
+
+## CORS nie blokuje scrapowania
+
+CORS jest wymuszane przez przeglądarki, nie serwery. Gdy robisz żądanie ze skryptu po stronie serwera, serwer zwraca cokolwiek zwraca – nagłówki CORS zatrzymują tylko przeglądarki przed czytaniem cross-origin odpowiedzi w JavaScript po stronie klienta. Twój scraper nie jest przeglądarką. CORS jest nieistotny.
+
+## Uwagi prawne i etyczne
+
+Techniczna zdolność do scrapowania strony nie oznacza, że jesteś do tego upoważniony. Sprawdź `robots.txt` strony, warunki usługi i obowiązujące prawa. Wiele stron wyraźnie zabrania scrapowania.
+
+## Co wybieram
+
+Dla statycznego HTML: Cheerio + fetch.
+Dla stron renderowanych JavaScriptem: Playwright lub Puppeteer ze wtyczką stealth.
+Dla skali: rotujące residential proxy, losowe opóźnienia, retry z backoffem.

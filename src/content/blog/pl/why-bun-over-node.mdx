@@ -1,0 +1,54 @@
+---
+title: 'Dlaczego zastąpiłem Node.js i npm Bunem we wszystkich moich projektach'
+description: 'Bun to runtime, menedżer pakietów, test runner i bundler w jednym pliku binarnym. Po uruchamianiu go w produkcji przez miesiące, oto szczera relacja z tego gdzie wygrywa i na co uważać.'
+publishDate: 2025-09-15
+tags: ['bun', 'tooling', 'developer-experience', 'typescript', 'open-source']
+---
+
+Przeniosłem każdy aktywnie rozwijany projekt na [Bun](https://bun.sh) – runtime, menedżer pakietów, test runner i wszystko. To nie była reakcja na wiralowy benchmark. To była seria małych decyzji, które się skumulowały aż Node.js był outsiderem na mojej maszynie.
+
+Oto co faktycznie się zmieniło i czego się nauczyłem.
+
+## Szybkość instalacji jest realna
+
+Pierwsza oczywista rzecz to instalacja pakietów. `bun install` na projekcie z dużym plikiem lockfile działa w sekundę lub dwie. Ten sam projekt z `npm install` lub `pnpm install` zajmuje piętnaście do trzydziestu sekund w zależności od stanu cache.
+
+To ma znaczenie bardziej niż brzmi. Pojawia się w uruchomieniach CI, w buildach Docker, przy onboardingu kogoś nowego do repozytorium i za każdym razem gdy przełączasz gałęzie i musisz uzgodnić pakiety.
+
+Szybkość pochodzi z tego, że menedżer pakietów Bun jest napisany w Zig, używa wywołań systemowych bezpośrednio i utrzymuje globalny cache pakietów, który współdzieli zainstalowane pakiety między projektami zamiast kopiować je za każdym razem.
+
+## TypeScript bez ceremonii
+
+Bun natywnie uruchamia TypeScript. Żadnego `ts-node`, żadnego `tsx`, żadnego kroku kompilacji dla skryptów.
+
+```bash
+bun scripts/generate-icons.ts
+```
+
+To działa. TypeScript jest wykonywany bezpośrednio. Dla skryptów prebuild w moim blogu – generowanie czcionek, generowanie ikon – oznacza to, że skrypty są po prostu plikami TypeScript działającymi jak skrypty powłoki, z pełnym bezpieczeństwem typów i wsparciem IDE, bez kroku budowania.
+
+## bun test
+
+Bun dostarcza test runner kompatybilny z API Jest. Ta sama struktura `describe`, `it`, `expect`, `beforeEach` działa. Migracja z Jest jest zwykle mechaniczna.
+
+Runner jest szybki bo działa w Bun i bo domyślnie równoległa. Zestaw testów zajmujący 8 sekund w Jest działa poniżej 2 w Bun.
+
+Nie ma ekosystemu pluginów tak głębokiego jak Jest, i niektóre zaawansowane matchery potrzebują obejść. Dla większości projektów to co dostarcza Bun jest wystarczające.
+
+## Interoperacyjność menedżera pakietów
+
+Bun czyta `package.json` dokładnie tak jak npm. Rozumie workspace w tym samym formacie. Generuje lockfile `bun.lockb` zamiast `package-lock.json`, ale możesz też użyć `--frozen-lockfile` w CI tak samo.
+
+Jedna różnica behawioralna warta poznania: Bun jest domyślnie bardziej rygorystyczny w rozwiązywaniu zależności peer. Projekty z cichymi błędnymi zależnościami peer pod npm czasem wynikają w ostrzeżeniach lub błędach pod Bun. To są prawdziwe problemy – Bun po prostu je raportuje zamiast cicho zgadywać.
+
+## Gdzie Node.js nadal ma znaczenie
+
+Kompatybilność Bun z Node.js jest bardzo wysoka ale nie kompletna. Większość pakietów npm działa bez modyfikacji. Niektóre pakiety używające Node-specificznych wewnętrznych mechanizmów mają problemy z kompatybilnością.
+
+## Praktyczny rezultat
+
+Każdy projekt który posiadam działa na Bun. Czasy instalacji są wystarczająco szybkie żebym przestał o nich myśleć. Skrypty TypeScript działają bez kroku budowania. Testy działają bez czekania.
+
+Migracja jest niskoobiążeniowa. Dodaj Bun, zaktualizuj swoje skrypty w `package.json` żeby używać `bun` zamiast `node` lub `npm`, i uruchom zestaw testów. Przez większość czasu działa natychmiast.
+
+[Dokumentacja Bun](https://bun.sh/docs) jest kompletna. Zacznij tam jeśli chcesz szczegółów dotyczących któregokolwiek z API lub notatek kompatybilności.

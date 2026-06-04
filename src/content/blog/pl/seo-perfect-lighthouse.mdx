@@ -1,0 +1,94 @@
+---
+title: 'SEO zrobione dobrze: 100/100 Lighthouse, Schema Markup i wszystko inne'
+description: 'Praktyczny przewodnik po wszystkim co wpływa na pozycjonowanie i indeksowalność: Core Web Vitals, Open Graph, Schema.org JSON-LD, hreflang, sitemaps, robots.txt i jak to wszystko razem działa.'
+publishDate: 2025-09-22
+tags: ['seo', 'web-development', 'performance', 'best-practices']
+---
+
+Perfekcyjny wynik Lighthouse nie jest sam w sobie celem. To efekt uboczny budowania strony, która ładuje się szybko, nie skacze podczas ładowania i natychmiast odpowiada na interakcje. Wyszukiwarki używają tych sygnałów, bo użytkownicy na nich polegają.
+
+To czego nauczyłem się budując warstwę SEO dla tego bloga i innych projektów w moim stosie.
+
+## Core Web Vitals: trzy liczby, które mają znaczenie
+
+Algorytm rankingowy Google bezpośrednio uwzględnia trzy metryki wydajności.
+
+**LCP (Largest Contentful Paint)** mierzy jak długo trwa załadowanie największego widocznego elementu. Dla większości stron to obraz hero lub główny nagłówek. Utrzymuj poniżej 2,5 sekundy. Główne dźwignie: kompresuj obrazy, wstępnie ładuj krytyczne zasoby, unikaj skryptów blokujących renderowanie.
+
+**CLS (Cumulative Layout Shift)** mierzy jak bardzo strona skacze podczas ładowania. Ładowanie czcionek to najczęstszy winowajca. Ustawiaj explicytne `width` i `height` na obrazach. Używaj `font-display: optional` lub dopasowuj metryki czcionki rezerwowej do ładowanej czcionki, żeby nic się nie przesunęło gdy ta przybywa.
+
+**INP (Interaction to Next Paint)** zastąpił FID i mierzy responsywność na wejście użytkownika. Długie zadania JavaScript są wrogiem. Utrzymuj główny wątek wolny od pracy blokującej interakcje.
+
+## Warstwa meta tagów
+
+Każda strona potrzebuje oddzielnego `<title>` i `<meta name="description">`. Tytuły powinny być do 60 znaków. Opisy do 160 znaków. Żaden nie powinien być zduplikowany na różnych stronach.
+
+```html
+<title>Building a Free Icon API for Developer Portfolios and READMEs</title>
+<meta name="description" content="A self-hosted API that generates tech stack icon strips via URL params. No account, no watermarks." />
+<link rel="canonical" href="https://blog.germondai.com/blog/building-germondai-icons" />
+```
+
+Kanoniczny URL zapobiega karom za zduplikowane treści gdy ta sama strona jest dostępna z wielu URL.
+
+## Open Graph
+
+Tagi Open Graph kontrolują jak strona wygląda gdy jest udostępniana na platformach społecznościowych. Minimum:
+
+```html
+<meta property="og:title" content="..." />
+<meta property="og:description" content="..." />
+<meta property="og:image" content="https://..." />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://..." />
+<meta property="og:site_name" content="Blog Germonda" />
+```
+
+Dla artykułów dodaj też `article:published_time`, `article:modified_time` i `article:tag`. Dla obrazów: zawsze podawaj szerokość i wysokość.
+
+## Twitter Cards
+
+Twitter/X ma własny zestaw tagów nakładający się na OG, ale nie identyczny:
+
+```html
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="..." />
+<meta name="twitter:description" content="..." />
+<meta name="twitter:image" content="https://..." />
+<meta name="twitter:image:alt" content="..." />
+<meta name="twitter:creator" content="@germondai" />
+```
+
+## Schema.org JSON-LD
+
+Dane ustrukturyzowane to metadane czytelne maszynowo, które umożliwiają bogate wyniki w wyszukiwarce Google. Zalecany format to JSON-LD w znaczniku `<script type="application/ld+json">`.
+
+Dla bloga trzy schematy pokrywają większość: **WebSite** z `potentialAction` SearchAction, **Person** ustanawiający autorstwo, i **BlogPosting** na każdej stronie artykułu.
+
+## Sitemap i robots.txt
+
+Sitemap informuje wyszukiwarki o każdym URL na twojej stronie. Dla strony wielojęzycznej uwzględnij wszystkie locale. Dla Astro `@astrojs/sitemap` generuje go automatycznie.
+
+`robots.txt` mówi crawlerom co mogą a czego nie mogą dostępować. Utrzymuj prostotę, chyba że masz konkretne sekcje do zablokowania.
+
+## hreflang dla stron międzynarodowych
+
+Dla stron w wielu językach, linki `hreflang` mówią wyszukiwarkom które strony są nawzajem tłumaczeniami.
+
+```html
+<link rel="alternate" hreflang="en" href="https://blog.germondai.com/blog/post" />
+<link rel="alternate" hreflang="cs" href="https://blog.germondai.com/cs/blog/post" />
+<link rel="alternate" hreflang="x-default" href="https://blog.germondai.com/blog/post" />
+```
+
+Wpis `x-default` wskazuje na wersję wyświetlaną gdy nie zostanie znaleziona pasująca locale.
+
+## Self-hostowane czcionki i CLS
+
+Ładowanie czcionek z Google CDN dodaje żądanie sieciowe i przyczynia się do przesunięcia układu. Naprawą jest pobranie czcionek podczas kompilacji i serwowanie ich samodzielnie, z metrykami fallback `@font-face` które dopasowują czcionkę systemową do rozmiarów załadowanej czcionki.
+
+## Rezultat
+
+Poprawne ustawienie tego wszystkiego to niegllamoryzacyjna praca, ale rezultat jest spójny: szybkie strony, czyste podglądy w wyszukiwarce, ustrukturyzowane dane w grafie wiedzy Google i pozycje, które utrzymują się, bo fundamenty są solidne.

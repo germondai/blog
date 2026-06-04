@@ -1,0 +1,93 @@
+---
+title: 'WebSockets vs SSE vs Socket.IO: Sieć w czasie rzeczywistym w praktyce'
+description: 'Trzy sposoby wysyłania danych z serwera do klienta w czasie rzeczywistym. Oto co każdy robi, gdzie każdy pasuje i jak bun.ws zmienia obraz wydajności dla serwerów WebSocket.'
+publishDate: 2025-10-06
+tags: ['websockets', 'real-time', 'backend', 'architecture', 'bun']
+---
+
+Czat na żywo, wspólna edycja, dashboardy aktualizujące się bez odświeżania – wszystkie te potrzebują serwera do wysyłania danych do klienta. Istnieją trzy główne sposoby na to i nie są wymienne.
+
+## Jak każdy działa
+
+Pomyśl o zwykłym żądaniu webowym jak rozmowie telefonicznej gdzie mówisz, potem odkładasz i czekasz aż druga osoba oddzwoni. To jest HTTP. Real-time potrzebuje czegoś bardziej jak trzymanie linii otwartej.
+
+**Server-Sent Events (SSE)** utrzymują połączenie otwarte żeby serwer mógł wysyłać wiadomości kiedy chce. Klient nie może wysyłać wiadomości z powrotem przez to samo połączenie. Jednostronne, serwer do klienta.
+
+**WebSockets** to pełne dwukierunkowe połączenie. Raz ustanowione, każda strona może w dowolnym momencie wysłać wiadomość do drugiej z niskim opóźnieniem. To jest to czego używają czaty, gry wieloosobowe i narzędzia do współpracy.
+
+**Socket.IO** to biblioteka zbudowana na WebSockets dodająca auto-reconnection, pokoje, nazewnictwo zdarzeń i fallbacki.
+
+## Porównanie obok siebie
+
+| Funkcja | SSE | WebSockets | Socket.IO |
+|---------|-----|-----------|-----------|
+| Kierunek | Serwer → Klient tylko | Dwukierunkowe | Dwukierunkowe |
+| Protokół | HTTP | WS/WSS | Własny (na WS) |
+| Auto-reconnect | Wbudowane w przeglądarkę | Ręczne | Wbudowane |
+| Pokoje/przestrzenie nazw | Nie | Ręczne | Wbudowane |
+| Obsługa przeglądarki | Doskonała | Doskonała | Wymaga lib klienta |
+| Narzut | Niski | Niski | Wyższy |
+| Najlepsze dla | Feedy, powiadomienia | Czat, gry, kolaboracja | Złożony real-time |
+
+## Kiedy używać SSE
+
+SSE jest niedoceniane. Jeśli twój przypadek użycia to tylko serwer-do-klienta – live activity feedy, aktualizacje postępu, streamowane odpowiedzi AI, powiadomienia – SSE jest prostsze niż WebSockets i działa ze standardowym HTTP/2.
+
+```typescript
+// Trasa serwera Nitro / Nuxt
+export default defineEventHandler(async (event) => {
+  const stream = createEventStream(event)
+
+  const interval = setInterval(async () => {
+    await stream.push({ data: JSON.stringify({ time: Date.now() }) })
+  }, 1000)
+
+  stream.onClosed(() => clearInterval(interval))
+
+  return stream.send()
+})
+```
+
+## Kiedy używać WebSockets
+
+Cokolwiek dwukierunkowego: czat gdzie klient wysyła wiadomości, wspólna edycja gdzie wielu użytkowników zmienia ten sam dokument, gry wieloosobowe gdzie pozycja gracza płynie w obu kierunkach.
+
+```typescript
+// Serwer WebSocket Bun
+const server = Bun.serve({
+  port: 3000,
+  websocket: {
+    open(ws) { ws.subscribe('chat') },
+    message(ws, message) { server.publish('chat', message) },
+    close(ws) { ws.unsubscribe('chat') },
+  },
+  fetch(req, server) {
+    if (server.upgrade(req)) return
+    return new Response('Not a WebSocket request')
+  },
+})
+```
+
+## bun.ws vs ekosystem Node.js
+
+Jeśli uruchamiasz serwer WebSocket na Bun, użyj natywnego wsparcia WebSocket `Bun.serve` zamiast pakietu npm `ws`. Natywny bun.ws obsługuje ponad 200 000 wiadomości na sekundę – wielokrotnie więcej niż pakiet `ws` pod Node.
+
+## Reconnection i niezawodność
+
+Połączenia WebSocket przeglądarki zrywają się gdy zmieniają się sieci. Obsługuj to.
+
+```typescript
+function connect() {
+  const ws = new WebSocket('wss://example.com/ws')
+  ws.onclose = () => setTimeout(connect, 1000 + Math.random() * 2000)
+  return ws
+}
+```
+
+## Co wybieram
+
+**SSE** dla live feedów, streamowania odpowiedzi AI, pasków postępu, powiadomień – cokolwiek serwer-do-klienta. Bez biblioteki klienta, działa przez HTTP/2.
+
+**Natywne WebSockets z bun.ws** dla czatu, współpracy w czasie rzeczywistym, wieloosobowych gier – cokolwiek dwukierunkowego gdzie liczy się przepustowość.
+
+**Socket.IO** rzadko w dzisiejszych czasach. Przydatne gdy potrzebujesz pokoi i przestrzeni nazw od razu, ale dodatkowy narzut i pakiet klienta są trudniejsze do uzasadnienia.
