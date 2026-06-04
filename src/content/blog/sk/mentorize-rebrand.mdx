@@ -1,0 +1,48 @@
+---
+title: 'Prebranding Mentorize na multi-service platformu'
+description: 'Premena jedného e-learningového prototypu na sadu prepojených podnikových služieb: vzdelávacia aplikácia, AI mentor, tímový chat, cloudový disk a zdieľaná UI komponentová knižnica.'
+publishDate: 2025-10-18
+tags: ['personal-projects', 'education', 'saas', 'architecture']
+---
+
+Pôvodný prototyp [Mentorize](https://old.mentorize.me) robil jednu vec. Fungovalo to, ale všetko žilo v jednom kódovom základe a jednej databáze, a jeho rozrastanie znamenalo boj s tvarom, v ktorom bol postavený.
+
+Prebranding nebol kozmetický. Bolo to rozhodnutie premeniť jeden monolit na sadu zameraných služieb, ktoré zdieľajú autentizáciu, dizajn a dáta, ale vlastnia svoje domény.
+
+## Prečo modulárny
+
+Budovanie prototypu ma naučilo, kde kategórie funkcií skutočne padali. Vytváranie kurzov a ich konzumácia je jeden problém. AI doučovanie je iný problém. Tímová komunikácia je tretia. Cloudové úložisko je štvrté. Zdieľajú používateľov a dáta, ale majú rôzne požiadavky na škálovanie, rôzne kadencie aktualizácií a rôzne vzory UI.
+
+Nacpanie všetkého do jednej Nuxt aplikácie bol prirodzený východzí bod, ale nie udržateľný cieľ. Ich oddelenie znamenalo, že každá služba sa môže vyvíjať vlastným tempom, bez toho aby zmena v jednej oblasti riskovala regresiu v inej.
+
+## Služby
+
+**[Mentorize](https://mentorize.me)** je teraz centrálnym uzlom: cieľová stránka, blog, cenník a onboarding komunity. Miesto, kde začínáš, kým pôjdeš kamkoľvek inam.
+
+**[app.mentorize.me](https://app.mentorize.me)** je vzdelávacia platforma – kurzy, kvízy, flashcards a interakcia mentor-študent. Postavená s podstatne lepším UX ako V1, podnikovými integráciami (CRM, LMS konektory) a správnou API vrstvou pre externé nástroje.
+
+**[ai.mentorize.me](https://ai.mentorize.me)** je AI mentor. Nie je to všeobecný chatbotový wrapper, ale kontextovo uvedomelý tutor, ktorý vie, čo študuješ, môže generovať cvičný materiál a funguje cez všetkých hlavných AI poskytovateľov a ich modely.
+
+**[accounts.mentorize.me](https://accounts.mentorize.me)** spracováva všetko ohľadom autentizácie a účtu: prihlásenie, registráciu, správu profilu, predplatné a správu sessions naprieč službami. Centralizácia tohto bolo najdôležitejšie architektonické rozhodnutie. Každá služba deleguje autentizáciu sem namiesto toho, aby každá udržiavala vlastný používateľský systém.
+
+**`@mentorize/ui`** je zdieľaný NPM balíček komponentov kompatibilných s Nuxt. Každá služba čerpá z rovnakej knižnice komponentov, takže vizuálna konzistencia je vynucovaná na úrovni balíčka, nie cez konvenciu a nádej.
+
+## Ako sa technologický stack zmenil
+
+Základ zostal rovnaký: Nuxt pre frontend, PostgreSQL pre trvalé dáta. Čo sa zmenilo, bola vrstva medzi nimi.
+
+Každá služba vystavuje verzované API. Cross-service volania idú cez tieto API. JWT tokeny vydané službou Accounts sú overované každou inou službou nezávisle, čo znamená, že žiadna služba nemusí volať Accounts pri každej požiadavke – len overiť token.
+
+UI balíček je verzovaný a publikovaný do NPM registra. Keď sa komponent zmení, služby sa prihlasujú k aktualizácii. To je pomalšie ako monorepo, kde všetko zdieľa kód priamo, ale robí hranice služieb skutočnými. Prelomová zmena v knižnici komponentov nemôže potichu rozbiť službu, ktorá ju ešte neprijala.
+
+## Model stále platí
+
+Overení mentori vytvárajú obsah. Obsah prechádza preskúmaním pred publikovaním. Príjmy z predaja kurzov sa delia medzi mentora a prevádzku platformy. Prezenčné sedenia fungujú na modeli rezervácie, kde študent zvláda logistiku.
+
+Táto štruktúra sa nezmenila. Prebranding zachoval to, čo fungovalo, a nahradil časti, ktoré obmedzovali.
+
+## Čo je ďalej
+
+Produktívna vrstva – dokumenty, prezentácie, tabuľky – je vo vývoji. Dlhodobá vízia je pracovný priestor, kde učenie a nástroje, ktoré ho podporujú, žijú pod jedným účtom bez prepínania medzi nesúvisiacimi aplikáciami.
+
+Služby sú teraz živé. Bezplatný tier na AI mentorovi a vzdelávacej aplikácii pokrýva veľa priestoru, kým záleží platený plán.
