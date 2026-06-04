@@ -1,0 +1,75 @@
+---
+title: 'Budowanie bezpłatnego icon API dla portfolio i plików README deweloperów'
+description: 'Każde portfolio dewelopera i README na GitHubie zasługuje na ostre ikony stosu technologicznego. Zbudowałem bezpłatne, self-hostowane API, które zamienia URL w elegancki pasek ikon – bez konta, bez znaków wodnych, bez limitów.'
+publishDate: 2026-04-15
+tags: ['open-source', 'developer-tools', 'api', 'bun']
+---
+
+Gdy deweloperzy dzielą się tym, co budują, chcą uznania za narzędzia, których użyli. Czysty rząd ikon stosu technologicznego w README, panel boczny portfolio lub osobista strona to jeden z najszybszych sposobów komunikowania tego, co znasz i co cię interesuje.
+
+Istniejące opcje miały te same problemy: złe ikony, nieporęczne rozmiary, narzucone znaki wodne lub limity szybkości, które aktywowały się w momencie poważnego użycia. Dlatego zbudowałem [@germondai/icons](https://github.com/germondai/icons), self-hostowane icon API działające na [icons.germondai.com](https://icons.germondai.com).
+
+Podaj URL taki jak ten:
+
+```
+/icons?i=bun,astro,typescript:mono:fff&theme=dark
+```
+
+a zwróci elegancki pasek SVG, który możesz wstawić gdziekolwiek.
+
+## Jak działa format URL
+
+Każda ikona jest podana jako `slug[:opcja...]`. Opcje są wykrywane według swojego kształtu, bez konieczności zapamiętywania explicytnych nazw kluczy:
+
+| Wzorzec | Co robi |
+|---------|---------|
+| `react` | oryginalne kolory, tło tematu |
+| `react:mono` | wersja jednokolorowa |
+| `react:mono:fff` | jednokolorowa, biały kolor wypełnienia |
+| `react:transparent` | przezroczyste tło |
+| `react:full` | wypełnia całą komórkę, bez paddingu |
+| `react:bg1a1a2e` | explicytny kolor tła |
+| `react:r0.5` | zaokrąglone rogi (0 do 1) |
+
+Warto znać pewną przydatną różnicę: `react:fff` ustawia kolor wypełnienia ikony na biały, podczas gdy `react:bgfff` ustawia tło komórki na białe. Można je łączyć: `react:mono:fff:bg1e1e2e:r0.8`.
+
+Parser automatycznie wykrywa każdą część. Ciąg hex o 3–6 znakach to kolor wypełnienia. Ciąg z prefiksem `bg` to kolor tła. Liczba z prefiksem `r` to promień rogu. Wszystko można łączyć w dowolnej kolejności.
+
+## Cztery warianty, eleganckie fallbacki
+
+Każda ikona jest dostarczana w do czterech wariantach: `original` (pełne kolory), `plain` (uproszczone wypełnienie), `line` (obrys) i `mono` (jednokolorowy). Jeśli zażądasz wariantu, który nie istnieje dla danej ikony, API automatycznie schodzi po liście priorytetów. Nigdy nie dostaniesz zepsutego obrazu.
+
+## Motywy
+
+Parametr `&theme=` stosuje nazwany kolor tła do wszystkich komórek naraz. Dostępnych jest ponad tuzin motywów opartych na paletach kolorów Tailwind CSS. Poszczególne ikony mogą nadpisać motyw własnymi opcjami, więc w jednym pasku można mieszać tła.
+
+## Pod maską
+
+Serwis działa na **Bun** z **Elysia**. Renderowanie SVG używa `@resvg/resvg-js`, a konwersja rastrowa (PNG, WebP) wykorzystuje `Bun.Image`. Typowa odpowiedź SVG zajmuje poniżej 2 ms. Formaty rastrowe są ograniczone do 20 żądań na minutę na IP, ponieważ konwersja formatu jest cięższa.
+
+Odpowiedzi są cachowane według pełnego ciągu zapytania. Trafienia SVG trwają poniżej 1 ms, ponieważ sprawdzanie cache jest szybsze niż parsowanie. Brakujące slugi są zwracane jako puste komórki i raportowane w nagłówku odpowiedzi `X-Missing-Icons`, więc wiesz dokładnie, co się nie rozwiązało.
+
+## Endpointy
+
+| Ścieżka | Co robi |
+|---------|---------|
+| `/icons` | generuj pasek |
+| `/icons/all` | przeszukiwalna galeria wszystkich slugów |
+| `/icons/list` | płaska lista slugów dla narzędzi |
+| `/meta/themes` | dostępne motywy i kolory |
+| `/meta/variants` | dostępne warianty dla każdej ikony |
+
+## Uruchomienie własnej instancji
+
+```bash
+git clone https://github.com/germondai/icons
+cd icons
+bun install
+bun dev
+```
+
+Obraz Docker ma ostatecznie poniżej 200 MB dzięki wieloetapowemu buildowi. Ten blog używa serwisu dla ikon społecznościowych w panelu bocznym: monochromatyczne ikony na przezroczystych tłach, które czysto wtapiają się w ciemne motywy.
+
+---
+
+Kod źródłowy na [GitHubie](https://github.com/germondai/icons) na licencji MIT.

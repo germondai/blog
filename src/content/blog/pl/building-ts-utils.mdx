@@ -1,0 +1,72 @@
+---
+title: 'ts-utils: Biblioteka narzędzi TypeScript pokrywająca prawie wszystko'
+description: 'Ponad dwadzieścia modułów narzędziowych dla TypeScript obejmujących łańcuchy znaków, tablice, daty, matematykę, kolory, kryptografię, URL-e, media i więcej. Jeden pakiet, spójnie typowany, zbudowany z Bun.'
+publishDate: 2025-05-14
+tags: ['typescript', 'open-source', 'utilities', 'bun']
+---
+
+Każdy projekt TypeScript gromadzi te same narzędzia. Funkcja do skracania łańcucha znaków. Pomocnik debounce. Coś do formatowania liczby z przecinkami. Funkcja konwersji kolorów wyciągnięta ze Stack Overflow lata temu.
+
+[@germondai/ts-utils](https://github.com/germondai/ts-utils) to moja próba zebrania tego wszystkiego w jeden spójnie utrzymywany, w pełni typowany pakiet zamiast kopiowania między projektami.
+
+## Co w nim jest
+
+Biblioteka jest zorganizowana w moduły, każdy obejmujący konkretną domenę:
+
+**`string`**: przycinanie, wielkość liter, skracanie, generowanie slugów, pomocniki interpolacji.
+
+**`array`**: chunking, deduplikacja, spłaszczanie, sortowanie, grupowanie, mieszanie.
+
+**`object`**: głębokie scalanie, głęboki klon, filtrowanie kluczy, narzędzia transformacji.
+
+**`math`**: clampowanie, zaokrąglanie, generowanie zakresów, pomocniki statystyczne.
+
+**`time`**: formatowanie, parsowanie, obliczanie czasu trwania, ciągi czasu względnego.
+
+**`color`**: konwersje hex/rgb/hsl, sprawdzanie jasności, mieszanie kolorów.
+
+**`url`**: budowanie, parsowanie, manipulacja query stringiem, narzędzia ścieżek.
+
+**`regex`**: gotowe wzorce dla e-maili, URL-i, slugów, haseł i innych.
+
+**`crypto`**: pomocniki hashowania, generowanie UUID, narzędzia losowych ciągów.
+
+**`data`**: serializacja, pomocniki walidacji, narzędzia schematu.
+
+**`media`**: wykrywanie typów MIME, formatowanie rozmiaru pliku, pomocniki wymiarów obrazów.
+
+**`promise`**: logika ponawiania, opakowania timeout, pomocniki współbieżności.
+
+**`function`**: debounce, throttle, memoize, compose.
+
+**`type`**: sprawdzanie typów w czasie działania i narzędzia zawężające.
+
+**`convertor`**: konwersje jednostek, konwersja podstawy liczb, narzędzia kodowania.
+
+**`normalize`**: normalizacja wejścia dla nazw, numerów telefonów, adresów.
+
+**`collection`**: niezmienne operacje kolekcji.
+
+**`constants`**: powszechne wartości stałe używane w projektach.
+
+**`errors`**: typowane klasy błędów i narzędzia obsługi błędów.
+
+**`size`**: formatowanie bajtów, narzędzia rozmiaru viewportu.
+
+## Instalacja
+
+```bash
+bun add @germondai/ts-utils
+# lub
+npm install @germondai/ts-utils
+```
+
+Wszystko jest eksportowane z roota pakietu z pełnymi typami TypeScript. Tree-shaking działa, więc paczujesz tylko to, co faktycznie importujesz.
+
+## Dlaczego jeden pakiet
+
+Alternatywą jest kopiowanie narzędzi między projektami lub utrzymywanie oddzielnych mikro-pakietów dla każdej domeny. Oba tworzą dryf: narzędzia string w projekcie A odbiegają od tych w projekcie B i następnym razem gdy musisz naprawić błąd, naprawiasz go w dwóch miejscach.
+
+Jeden pakiet oznacza jedno źródło prawdy. Napraw raz, zaktualizuj wszędzie.
+
+Kod źródłowy jest na [GitHubie](https://github.com/germondai/ts-utils) na licencji MIT.

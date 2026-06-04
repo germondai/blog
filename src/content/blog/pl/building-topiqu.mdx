@@ -1,0 +1,44 @@
+---
+title: 'Topiqu: Budowanie platformy blogowej, gdzie AI robi ciężką robotę'
+description: 'Topiqu to platforma blogowa full-stack z asystentem pisania AI, bogatym edytorem, własnymi domenami i rozliczeniami Stripe. Oto jak i dlaczego ją zbudowałem.'
+publishDate: 2025-11-12
+tags: ['ai', 'blogging', 'saas', 'personal-projects', 'nuxt']
+---
+
+Pisanie nie jest trudną częścią prowadzenia bloga. Znalezienie czasu, pokonanie pustej strony, sprawienie żeby post wyglądał dobrze, opublikowanie go w domenie, która czuje się jak twoja. To jest trudna część. Większość narzędzi rozwiązuje jeden z tych problemów i ignoruje resztę.
+
+[Topiqu](https://topiqu.com) to moja próba rozwiązania ich wszystkich naraz.
+
+## Bogaty edytor, który nie przeszkadza
+
+Edytor jest zbudowany na [Tiptap](https://tiptap.dev), wysoce kompozytywnym frameworku rich-text. Co to oznacza w praktyce: dostajesz doświadczenie pisania zbliżone do dobrego edytora tekstu, a nie deweloperskiego pola markdown.
+
+Komendy ukośnika pozwalają wstawiać dowolny typ bloku: nagłówki, obrazy, ankiety, osadzenia – bez przerywania twojego flow. Automatyczne zapisywanie działa nieprzerwanie w tle. Wersje robocze są wersjonowane. Gdy jesteś gotowy do publikacji, przepływ wydania to jedno kliknięcie.
+
+## AI, która pomaga gdy utkniesz
+
+Każdy post ma wbudowanego asystenta pisania AI. Może wygenerować pełny szkic z promptu, rozwinąć sekcję, którą zarysowałeś, przeformułować coś, co nie czyta się dobrze, lub zasugerować obrazy pasujące do treści. Zużycie tokenów jest mierzone per plan, więc jest dostępne dla wszystkich bez spalania kosztów infrastruktury na ciężkich użytkownikach.
+
+Integracja AI działa na [Grok od xAI](https://x.ai) przez Vercel AI SDK. Wybór był praktyczny: Grok jest szybki, ma silne okno kontekstowe i dobrze radzi sobie ze strukturalnymi zadaniami kreatywnymi.
+
+## Twój blog, twoja domena
+
+Każda strona na Topiqu domyślnie żyje w swojej własnej subdomenie. Jeśli chcesz własnej domeny (`blog.twojamarke.com`), dodajesz rekord CNAME i platforma zajmuje się resztą, w tym inicjowaniem certyfikatu. Wiele stron współdzieli to samo konto z izolowanymi danymi i oddzielnym rozliczeniem.
+
+Ta architektura multi-tenant sprawia, że Topiqu to coś więcej niż narzędzie do osobistego blogowania. Agencje mogą prowadzić wiele stron klientów. Niezależni twórcy mogą mieć profesjonalny dom. Zespoły mogą publikować pod własną marką.
+
+## Powiadomienia w czasie rzeczywistym
+
+System powiadomień SSE (Server-Sent Events) utrzymuje czytelników i współpracowników na bieżąco w czasie rzeczywistym. Nowe posty, komentarze i wzmianki pojawiają się natychmiast bez pollowania.
+
+## Zbudowany na poważnym stosie
+
+Pełny stos to Nuxt 4 na froncie, z PostgreSQL i Prisma dla danych. Kontrola dostępu jest obsługiwana przez [ZenStack](https://zenstack.dev), zapewniający polityki bezpieczeństwa na poziomie wierszy egzekwujące kto może czytać i pisać co, bezpośrednio na warstwie danych. Przechowywanie plików działa na AWS S3. Transakcyjny e-mail używa AWS SES z szablonami MJML.
+
+System subskrypcji to Stripe z miesięcznymi i rocznymi cyklami rozliczeniowymi, ulepszeniami planów i jednorazowymi doładowaniami tokenów dla użycia AI. Wszystko jest sterowane webhookami, więc zmiany planu stosują się natychmiast.
+
+## Dlaczego to zbudowałem
+
+Chciałem platformy, która szanuje pisarzy na tyle, żeby dać im prawdziwe narzędzie, a nie okrojony edytor z "planem pro", który odblokowuje podstawowe funkcje. Topiqu zaczyna od pełnego doświadczenia pisania i pobiera opłaty za infrastrukturę umożliwiającą skalę.
+
+Jest dostępny na [topiqu.com](https://topiqu.com). Jeśli piszesz, warto spróbować.

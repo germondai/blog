@@ -1,0 +1,46 @@
+---
+title: 'Budowanie portfolio, które naprawdę pokazuje, kim jesteś'
+description: 'Osobiste portfolio powinno robić więcej niż tylko wymieniać umiejętności. Moje ma holograficzne efekty tilt, przewijanie parallax, oś czasu mojej pracy i żywą wystawę projektów. Oto jak je zbudowałem z Nuxt.'
+publishDate: 2024-05-20
+tags: ['portfolio', 'nuxt', 'personal-projects', 'vue']
+---
+
+Większość portfolio deweloperów wygląda tak samo. Nagłówek, sekcja umiejętności z ikonami, trzy karty projektów i formularz kontaktowy. Odhaczają pola bez pozostawiania żadnego wrażenia.
+
+Chciałem czegoś innego. Moje portfolio na [germondai.com](https://germondai.com) jest zbudowane tak, żeby czuło się żywe, poruszało się i naprawdę pokazywało, co jestem w stanie zbudować – nie tylko to opisywało.
+
+## Co zawiera
+
+Strona jest podzielona na cztery sekcje. Landing natychmiast mnie przedstawia. Sekcja O mnie daje więcej kontekstu o tym, kim jestem i na czym się skupiam. Oś czasu śledzi moją drogę przez projekty i naukę. A sekcja Praca pokazuje same projekty, każdy z linkiem do działającego demo.
+
+Ta ostatnia część ma większe znaczenie, niż większość portfolio przyznaje. Każdy może wymienić nazwę projektu i stos technologiczny. Bezpośredni link do działającego demo mówi: ta rzecz działa.
+
+## Efekty
+
+Pierwszą rzeczą, którą większość ludzi zauważa, są efekty wizualne, i wszystkie są celowe.
+
+**Holo tilt** sprawia, że karty reagują na ruch kursora holograficznym połyskiem. To efekt, który wygląda jak sztuczka magiczna za pierwszym razem i jak naturalna część interfejsu za trzecim razem.
+
+**Parallax** warstwuje elementy przy różnych prędkościach przewijania, nadając stronie prawdziwą głębię zamiast płaskiego scrollowania. Jest subtelny, ale zmienia to, jak czuje się poruszanie po stronie.
+
+**Reveal** animuje elementy do widoku, gdy wchodzą do viewportu, więc strona buduje się sama zamiast wyrzucać wszystko naraz.
+
+**Flare** dodaje smugi światła śledzące interakcję, podobne do efektu rozbłysku soczewki w moich innych projektach.
+
+**Float** utrzymuje pewne elementy w delikatnym wiecznym ruchu, nadając stronie poczucie życia nawet gdy użytkownik nic nie robi.
+
+Wszystkie te efekty są zbudowane w Vue i używają animacji CSS gdzie to możliwe, żeby zachować wydajność.
+
+## Stos technologiczny
+
+Portfolio działa na [Nuxt 4](https://nuxt.com) z Vue 3. Stylowanie to TailwindCSS. [VueUse](https://vueuse.org) obsługuje integracje z API przeglądarki, takie jak pozycja myszy i śledzenie przewijania. [VeeValidate](https://vee-validate.logaretm.com) zarządza walidacją formularza kontaktowego. Internacjonalizację obsługuje Vue I18n, przy czym strona jest dostępna w wielu językach.
+
+Formularz kontaktowy jest podłączony do API, które przechowuje przesłania w bazie danych. To nie jest tylko link mailto.
+
+## Dlaczego budować własne
+
+Zewnętrzni kreatorzy portfolio są wygodni, ale mają ograniczenia. Ograniczone układy. Ograniczone interakcje. Zazwyczaj subdomena lub logo gdzieś, o co nie prosiłeś. I co kluczowe, nie demonstrują niczego o twojej zdolności do budowania.
+
+Portfolio, które sam zbudowałeś, jest też projektem. To dowód.
+
+Kod źródłowy jest na [GitHubie](https://github.com/germondai/portfolio), a wersja na żywo jest na [germondai.com](https://germondai.com).

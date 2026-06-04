@@ -1,0 +1,34 @@
+---
+title: 'LibroFlare: Jedna aplikacja dla książek, audiobooków, komiksów i mangi'
+description: 'Czytanie dziś oznacza żonglowanie wieloma aplikacjami w zależności od formatu. LibroFlare to nasza odpowiedź: jedna cyfrowa biblioteka dla każdego formatu, zbudowana z Nuxt na froncie i Symfony na zapleczu.'
+publishDate: 2024-12-22
+tags: ['books', 'audiobooks', 'manga', 'personal-projects', 'nuxt']
+---
+
+Czytanie kiedyś oznaczało jedno miejsce: półkę. Teraz oznacza nawigowanie przez cztery lub pięć różnych aplikacji w zależności od tego, co chcesz czytać. Kindle do e-booków. Osobna aplikacja do audiobooków. Kolejna do mangi lub komiksów. Każda z własnym kontem, własną synchronizacją, własną subskrypcją.
+
+[LibroFlare](https://libroflare.germondai.com) to projekt, który zbudowałem z [@bigjohnn1](https://github.com/bigjohnn1), żeby to naprawić. Jedna biblioteka. Każdy format.
+
+## Co obejmuje
+
+Książki, audiobooki, komiksy i manga żyją wszystkie w tym samym interfejsie. Idea jest taka, że twoje życie czytelnicze nie powinno być podzielone na platformy tylko dlatego, że format jest inny. Jeśli przełączasz się z czytania powieści na jej słuchanie w drodze do pracy, jesteś w tej samej aplikacji.
+
+Widok biblioteki stawia twoją kolekcję na pierwszym planie. Przeglądaj według formatu, gatunku lub szukaj czegoś konkretnego. Wszystko jest zbudowane z myślą o szybkości, bez ekranów ładowania dla rzeczy, do których już wcześniej uzyskiwałeś dostęp.
+
+## Doświadczenie czytelnicze
+
+Każdy format ma własny zoptymalizowany czytnik. Książki tekstowe mają czystą typografię, regulowany rozmiar czcionki i śledzenie postępu. Audiobooki mają trwały odtwarzacz, który pozostaje z tyłu podczas przeglądania. Komiksy i manga mają czytnik na pełnym ekranie z nawigacją stron, która czuje się natywnie zarówno na komputerze, jak i na telefonie.
+
+Postęp synchronizuje się między urządzeniami. Wznów na telefonie tam, gdzie skończyłeś na laptopie.
+
+## Jak to zbudowaliśmy
+
+Frontend jest zbudowany na [Nuxt](https://nuxt.com) z Vue 3, wybór, który zrobiliśmy, ponieważ renderowanie po stronie serwera ma znaczenie dla aplikacji z tak dużą ilością treści. Backend to [Symfony](https://symfony.com), obsługujący API, uwierzytelnianie i zarządzanie treścią.
+
+Utrzymaliśmy stos wystarczająco znajomy, żeby poruszać się szybko, ale wystarczająco solidny do skalowania. Dwa frameworki dobrze ze sobą współpracują, gdy kontrakt API jest czysty, a trzymanie frontendu i backendu w oddzielnych katalogach wymuszało tę dyscyplinę.
+
+## Co go wyróżnia
+
+Większość aplikacji bibliotek cyfrowych jest zaprojektowana wokół katalogu konkretnego wydawcy lub jednego rodzaju treści. LibroFlare jest z założenia agnostyczny co do formatu. Czy to 600-stronicowa powieść, 20-minutowy audiobook długości podcastu, czy tom mangi – wszystkie należą do tego samego miejsca.
+
+Projekt działa na [libroflare.germondai.com](https://libroflare.germondai.com). Nadal dodajemy funkcje, ale podstawowe doświadczenie czytelnicze jest solidne. Jeśli lubisz książki w jakimkolwiek formacie, warto zajrzeć.

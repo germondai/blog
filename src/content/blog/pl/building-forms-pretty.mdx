@@ -1,0 +1,43 @@
+---
+title: 'Forms Pretty: Jeden plik CSS dla pięknych formularzy HTML'
+description: 'Domyślne style formularzy w przeglądarkach wyglądają fatalnie w każdej przeglądarce. Forms Pretty to uniwersalny arkusz CSS, który natychmiast sprawia, że każdy formularz wygląda elegancko – bez zależności od frameworka i bez konfiguracji.'
+publishDate: 2024-09-16
+tags: ['css', 'open-source', 'forms', 'frontend']
+---
+
+Domyślne style formularzy w przeglądarkach są słynnie złe. Inputy wyglądają inaczej w każdej przeglądarce. Stylowanie select dropdownów konsekwentnie jest prawie niemożliwe. Przepaść między mockupem projektu a prawdziwym formularzem HTML to coś, co każdy frontend developer musiał zamykać ręcznie, wielokrotnie, w każdym projekcie.
+
+[Forms Pretty](https://github.com/germondai/forms-pretty) to moje rozwiązanie tego problemu. To jeden plik CSS. Pobierz go, podlinkuj go, gotowe.
+
+## Co robi
+
+Forms Pretty styluje wszystkie standardowe elementy formularzy HTML: pola tekstowe, textarey, select dropdowny, checkboxy, przyciski radio i inne. Style są spójne w różnych przeglądarkach, czytelne domyślnie i zaprojektowane tak, żeby uzupełniać resztę strony, a nie z nią walczyć.
+
+Wymagane pola automatycznie otrzymują gwiazdkę. Żadnego JavaScriptu nie potrzeba.
+
+Arkusz stylów jest zbudowany z SCSS i TailwindCSS, a następnie skompilowany przez Vite do jednego czystego pliku CSS. Nigdy nie musisz instalować czegokolwiek z npm ani konfigurować pipeline'u kompilacji, żeby go użyć. Wystarczy podlinkować skompilowany plik.
+
+```html
+<link rel="stylesheet" href="prettyForms.css" />
+```
+
+To cała integracja. Twoje formularze będą wyglądać lepiej natychmiast.
+
+## Dlaczego osobny plik
+
+Większość bibliotek CSS dla formularzy jest częścią większego systemu. Są dostarczane razem z resetem, gridem, regułami typografii, klasami komponentów. Dodanie ich oznacza przyjęcie tego wszystkiego, albo spędzenie czasu na usuwaniu tego, czego nie potrzebujesz.
+
+Forms Pretty robi jedną rzecz. Zajmuje się formularzami. Jeśli twój projekt ma już system projektowania, wchodzi w niego bez żadnych konfliktów. Jeśli budujesz coś szybko i nie chcesz konfigurować całego stacku CSS, to nadal właściwy wybór.
+
+## Użycie w projekcie
+
+Pobierz najnowszy plik CSS ze [strony releases](https://github.com/germondai/forms-pretty/releases) i podlinkuj go w swoim HTML. Żadnego npm, żadnego kroku kompilacji, żadnej konfiguracji. Działa w każdym projekcie, każdym frameworku, każdym stosie technologicznym.
+
+Jeśli chcesz dostosować lub wnieść wkład, środowisko deweloperskie używa pnpm:
+
+```bash
+pnpm install
+pnpm run dev
+```
+
+Kod źródłowy jest na [GitHubie](https://github.com/germondai/forms-pretty) na licencji MIT.

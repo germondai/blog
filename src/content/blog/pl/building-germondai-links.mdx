@@ -1,0 +1,66 @@
+---
+title: 'Porzuciłem Linktree i zbudowałem własny – za darmo'
+description: 'Zmęczony znakami wodnymi Linktree i płatną personalizacją, zbudowałem własną osobistą stronę z linkami. Open source, self-hostowana, 15 motywów i konfiguracja zajmuje około pięciu minut.'
+publishDate: 2026-05-10
+tags: ['open-source', 'self-hosted', 'personal-website', 'bun']
+---
+
+Udostępniasz linki wszędzie. Bio na Instagramie. Twitter/X. Podpis e-mail. Profil GitHub. Wizytówka. Zazwyczaj jest jeden problem: każde narzędzie, które pomaga ci zarządzać tą jedną stroną docelową, albo umieszcza swoje logo na twojej stronie, albo zamyka dobre funkcje za subskrypcję, albo po prostu nie czuje się jak *twoje*.
+
+Dlatego zbudowałem [@germondai/links](https://github.com/germondai/links), którego używam na [links.germondai.com](https://links.germondai.com).
+
+## Co to jest
+
+Osobista strona z linkami. Jeden URL, wszystkie twoje linki, twoja marka, zero znaków wodnych. Forkujesz projekt, edytujesz jeden plik TypeScript i wdrażasz. Żadnego konta do tworzenia, żadnego dashboardu do logowania się, żadnej miesięcznej opłaty.
+
+```typescript
+const config: LinksConfig = {
+  profile: {
+    name: 'Germond',
+    username: 'germondai',
+    bio: 'Aspiring Full-Stack Web Developer',
+    avatar: 'https://github.com/germondai.png',
+  },
+  links: [
+    { title: 'Portfolio', url: 'https://germondai.com', icon: 'icon:github:mono:fff' },
+    { title: 'GitHub', url: 'https://github.com/germondai', icon: 'icon:github:mono:fff' },
+  ],
+}
+```
+
+To cała konfiguracja. TypeScript natychmiast wyłapuje literówki: błędnie wpiszesz nazwę motywu i jest to błąd kompilacji, a nie tajemnica w czasie działania.
+
+## Motywy i efekty wizualne
+
+Dostępnych jest 15 wbudowanych motywów, każdy z własnym gradientem, kolorem akcentu i animowanymi efektami. Motyw, którego używam, `phantom`, to głęboka ciemna paleta indygo. Inne opcje wahają się od ciepłej bursztynowej i tropikalnej szmaragdowej po cyberpunkową cyjanową i krwistą karmazynową.
+
+Za każdą stroną działają trzy efekty tylko CSS: powolne przejścia wiązek gradientu, unoszące się cząsteczki-kropki i efekt rozbłysku soczewki wyzwalany kliknięciem. Wszystkie respektują ustawienie dostępności `prefers-reduced-motion` i można je indywidualnie wyłączyć w konfiguracji.
+
+## Self-hostowane czcionki, bez śledzenia przez Google
+
+Większość stron z linkami ładuje czcionki z Google CDN. Oznacza to zapytanie DNS, żądanie sieciowe i adres IP twojego odwiedzającego trafiający do Google za każdym razem, gdy ktoś otwiera twoją stronę.
+
+Ten projekt pobiera wybraną czcionkę na twój własny serwer w czasie kompilacji. Odwiedzający otrzymują szybkie ładowanie, a ich dane pozostają między tobą a nimi. Do wyboru jest 41 czcionek, od Inter i Geist po JetBrains Mono i Playfair Display.
+
+## Panel deweloperski
+
+Podczas lokalnego konfigurowania, unoszące się koło zębate otwiera panel konfiguracyjny na żywo bezpośrednio w przeglądarce. Przełączasz motywy, zmieniasz czcionki, zmieniasz kolejność linków, przełączasz efekty – wszystko bez dotykania pliku. Gdy jesteś zadowolony, panel eksportuje fragment TypeScript, który wklejasz do swojej konfiguracji.
+
+## Wdrożenie
+
+```bash
+git clone https://github.com/germondai/links
+cd links
+cp links.config.example.ts links.config.ts
+bun dev
+
+# produkcja
+docker build -t my-links .
+docker run -p 3000:3000 my-links
+```
+
+Vercel i Netlify działają bez żadnej dodatkowej konfiguracji. Do self-hostingu używam Dockera na małym VPS z Caddy z przodu.
+
+---
+
+Kod źródłowy na [GitHubie](https://github.com/germondai/links) na licencji AGPL-3.0.
