@@ -1,0 +1,46 @@
+---
+title: 'Mentorize V1: Budování prvního e-learningového prototypu'
+description: 'Jak se dal dohromady první verze Mentorize jako full-stack Nuxt aplikace s MySQL, interaktivními kurzy a video-based učením – a co jsem se naučil při jejím budování.'
+publishDate: 2025-03-13
+tags: ['nuxt', 'personal-projects', 'education', 'open-source']
+---
+
+Každý projekt má verzi nula, která se nikdy nespustí čistě. [Mentorize V1](https://old.mentorize.me) je moje verze, která to zvládla.
+
+Začalo to jako způsob, jak prozkoumat full-stack vývoj od konce ke konci: skutečná e-learningová platforma se skutečnými uživateli, skutečnými kurzy a skutečnými problémy k řešení. Ne tutoriálový projekt. Skutečná věc.
+
+## Co jsem se snažil postavit
+
+Myšlenka byla jednoduchá: platforma, kde se mohou setkávat mentoři a studenti, a kde vzdělávací materiál žil vedle nástrojů, které ti pomáhají ho vstřebat. Interaktivní kurzy, videokontent, kvízy, testy a způsob, jak mohou mentoři vydělávat z toho, co vytvořili.
+
+Finanční model byl přímočarý. Mentoři vytváří kurzy. Studenti je kupují. Příjmy se rozdělují mezi mentora, vývoj a náklady na server. Žádné reklamy, žádné zprostředkování dat.
+
+## Stack
+
+Frontend byl [Nuxt](https://nuxt.com). Composition API Vue 3 udělalo logiku komponent čitelnou a file-based routing Nuxt odstranil spoustu ceremoničnosti nastavování. Postavil jsem přes 50 vlastních komponent pro formuláře, dashboardy, prohlížeče kurzů, rozhraní kvízů a chat mentor-student.
+
+Backend začal s MySQL. Vybral jsem ho, protože jsem ho znal a potřeboval se rychle pohybovat. Datový model nebyl složitý: uživatelé, kurzy, zápisy, bloky obsahu, výsledky kvízů.
+
+To se změnilo, když komplexnost relačních dat narostla. V polovině vývoje jsem přešel na PostgreSQL. Samotná migrace byla plynulá – schéma bylo dostatečně čisté, že přechod byl převážně connection string a pár úprav dotazů.
+
+Obsah byl Markdown-poháněný přes [Nuxt Content](https://content.nuxt.com), který zpracovával prózu, kódové bloky a vložená média bez vlastní vykreslovací vrstvy.
+
+## Jak to vypadalo v praxi
+
+Student se přihlásí, prohlédne si knihovnu kurzů, zapíše se a pracuje přes bloky obsahu vlastním tempem. Kvízy se zobrazují vložené. Videa se vkládají přes standardní přehrávače. Pokrok se sleduje.
+
+Mentor se přihlásí, vytvoří kurz editorem, odešle ho k ověření a pak vydělává z prodeje. Prezenční sezení – workshopy, školní návštěvy – se odehrávaly, když je student potřeboval, na místě, které si zvolil. Platforma se do toho nevměšovala kromě rezervace a platby.
+
+Jen pro ověřené mentory, ne otevřené příspěvky od kohokoliv. Každý kus obsahu prošel procesem přezkoumání, než šel živě. To udržovalo vysokou kvalitu a knihovnu důvěryhodnou.
+
+## Co jsem se naučil
+
+Budování každé vrstvy sám je pomalé, ale vzdělávací způsobem, který startovací sady neumožňují. Naučil jsem se, proč PostgreSQL vítězí nad MySQL při relační komplexnosti. Naučil jsem se, že schéma obsahu navržené pro jednoduchost se stává omezením, když platforma roste. Naučil jsem se, že budování autentizace sám jednou tě naučí přesně, proč bys měl příště použít knihovnu.
+
+Prototyp mě také naučil, čím platforma skutečně má být. Funkce, o které jsem si myslel, že uživatelé budou chtít, se ukázaly být méně důležité než kvalita párování mentorů a spolehlivost doručování obsahu.
+
+## Kde to skončilo
+
+Mentorize V1 je stále živá na [old.mentorize.me](https://old.mentorize.me) jako archiv. Není to směr, kterým platforma směřuje, ale je upřímná ohledně toho, kde začala.
+
+Druhá verze přebudovala vše z toho, co naučila první verze.

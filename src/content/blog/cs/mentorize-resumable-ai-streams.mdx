@@ -1,0 +1,51 @@
+---
+title: 'Obnovitelné AI streamy: Jak jsem zajistil, že nikdy neztratíš odpověď'
+description: 'Sledování pozice streamu na straně serveru, takže obnovení stránky, výpadky spojení a sdílené chatovací odkazy pokračují ve streamování přesně tam, kde skončily – bez nutnosti nového generování.'
+publishDate: 2025-12-08
+tags: ['ai', 'streaming', 'real-time', 'personal-projects', 'architecture']
+---
+
+AI chatovací rozhraní mají problém se spolehlivostí, o kterém nikdo nemluví dostatečně. Dostaneš dlouhou, detailní odpověď uprostřed generování, tvoje spojení přeruší a je pryč. Obnovíš stránku: pryč. Sdílíš odkaz, než skončí: druhá osoba vidí statickou částečnou odpověď, ne živý stream.
+
+Do [ai.mentorize.me](https://ai.mentorize.me) jsem zabudoval obnovitelné streamy, abych vyřešil všechny tři případy.
+
+## Hlavní problém
+
+Standardní AI streaming funguje takto: odejde požadavek, přicházejí chunky, UI je vykresluje jak přicházejí. Klient drží veškerý stav. Pokud se klient z jakéhokoliv důvodu odpojí – zavření záložky, obnovení, výpadek sítě – stream je opuštěn. Když se znovu připojí, spustí nový požadavek a model generuje od začátku.
+
+Pro krátké odpovědi je to snesitelné. Pro dlouhé – detailní vysvětlení, víceúrovňové implementace kódu, komplexní analýzy – je to skutečně frustrující. 60sekundová odpověď přerušená ve 45 sekundách znamená, že jsi ztratil 45 sekund generování.
+
+## Přístup
+
+Opravou je přesunout sledování pozice streamu na server.
+
+Když stream začíná, server vytvoří záznam se stream ID, kontextem zprávy a aktuálním čítačem pozice. Každý chunk zapsaný do odpovědi je také zapsán do serverového úložiště s jeho pozičním indexem. Když se klient znovu připojí, pošle stream ID a svou poslední známou pozici. Server obnoví přesně od tohoto znaku.
+
+Při obnovení se přenáší pouze delta – žádné opakované přenášení obsahu, který klient již má, žádné regenerování obsahu od začátku. Model vůbec nemusí být znovu volán.
+
+## Co to umožňuje
+
+**Výpadky spojení**: klient detekuje odpojení a automaticky se znovu připojí. Z pohledu uživatele dojde ke krátké pauze a pak text pokračuje v zobrazování. Není potřeba žádná akce uživatele.
+
+**Obnovení stránky**: když se stránka znovu načte, aplikace zkontroluje aktivní stream ID před vykreslením pohledu na konverzaci. Pokud je nalezeno, znovu se připojí a generování pokračuje přesně tam, kde skončilo. Obnovení uprostřed streamu je nyní nudné.
+
+**Sdílené odkazy**: toto je nejužitečnější pro spolupráci. Pokud sdílíš chatovací odkaz, zatímco AI odpověď generuje, kdokoliv otevře tento odkaz, vidí stream v reálném čase. Ne screenshot, ne kopii – živý přenos téhož generování. Více lidí může sledovat, jak se zobrazuje dlouhé technické vysvětlení, diskutovat o něm jak generuje, a okamžitě pokládat doplňující otázky, když skončí.
+
+## Poznámky k implementaci
+
+Sledování pozice musí být efektivní. Stav streamu ukládám v Redis s TTL místo trvalé databáze – aktivní streamy jsou krátkodobé a nepotřebují trvanlivost za dobu své existence. Klient ukládá stream ID v session a posílá ho s každým pokusem o obnovení spojení.
+
+Pro případ sdíleného odkazu se každý připojený klient přihlašuje ke stejnému stream ID. Server rozmísťuje chunky všem aktivním odběratelům. Logika rozptylu je stejná jako jakýkoliv pub/sub vzor: publikuj do kanálu klíčovaného podle stream ID, přihlašuj se, když se nový klient připojí s tímto ID.
+
+Okrajové případy, které stojí za ošetření:
+- Stream se dokončí, zatímco je klient odpojen. Při obnovení server detekuje, že stream je dokončen, a pošle zbývající celý obsah najednou místo předstírání, že je stále živý.
+- Více klientů sdílejících odkaz vidí identický stav, protože všichni čtou ze stejné poziční sekvence, ne každý udržuje vlastní.
+- Síťové podmínky mohou způsobit doručení chunků mimo pořadí. Poziční index umožňuje klientovi detekovat mezery a čekat na chybějící chunk před vykreslením, místo zobrazení obsahu mimo pořadí.
+
+## Jak to vypadá v praxi
+
+Převážně neviditelně, což je smyslem. Přestaneš si všímat, že máš síťové připojení. Odpovědi, které dříve vyžadovaly opatrování, teď prostě fungují bez ohledu na to, co se stane s tvým spojením uprostřed.
+
+Pro spolupráci funkce sdíleného streamu přeměnila něco, co dříve vyžadovalo sdílení obrazovky, na něco, co prostě funguje z odkazu.
+
+Funkce je nyní živá na [ai.mentorize.me](https://ai.mentorize.me). Spusť dlouhou odpověď a obnoviš stránku, aby pokračovala. Sdílej odkaz s někým a sleduj, jak vidí stejný stream.

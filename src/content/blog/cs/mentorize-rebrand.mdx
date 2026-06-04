@@ -1,0 +1,48 @@
+---
+title: 'Přebranding Mentorize na multi-service platformu'
+description: 'Přeměna jednoho e-learningového prototypu na sadu propojených podnikových služeb: vzdělávací aplikace, AI mentor, týmový chat, cloudový disk a sdílená UI komponentová knihovna.'
+publishDate: 2025-10-18
+tags: ['personal-projects', 'education', 'saas', 'architecture']
+---
+
+Původní prototyp [Mentorize](https://old.mentorize.me) dělal jednu věc. Fungovalo to, ale vše žilo v jednom kódovém základu a jedné databázi, a jeho rozrůstání znamenalo boj s tvarem, ve kterém byl postaven.
+
+Přebranding nebyl kosmetický. Bylo to rozhodnutí přeměnit jeden monolit na sadu zaměřených služeb, které sdílejí autentizaci, design a data, ale vlastní své domény.
+
+## Proč modulární
+
+Budování prototypu mě naučilo, kde kategorie funkcí skutečně padaly. Vytváření kurzů a jejich konzumace je jeden problém. AI doučování je jiný problém. Týmová komunikace je třetí. Cloudové úložiště je čtvrté. Sdílejí uživatele a data, ale mají různé požadavky na škálování, různé kadence aktualizací a různé vzory UI.
+
+Nacpání všeho do jedné Nuxt aplikace byl přirozený výchozí bod, ale ne udržitelný cíl. Jejich oddělení znamenalo, že každá služba se může vyvíjet vlastním tempem, aniž by změna v jedné oblasti riskovala regresi v jiné.
+
+## Služby
+
+**[Mentorize](https://mentorize.me)** je nyní centrálním uzlem: cílová stránka, blog, ceník a onboarding komunity. Místo, kde začínáš, než půjdeš kamkoliv jinam.
+
+**[app.mentorize.me](https://app.mentorize.me)** je vzdělávací platforma – kurzy, kvízy, flashcardy a interakce mentor-student. Postavena s podstatně lepším UX než V1, podnikovými integracemi (CRM, LMS konektory) a správnou API vrstvou pro externí nástroje.
+
+**[ai.mentorize.me](https://ai.mentorize.me)** je AI mentor. Není to obecný chatbotový wrapper, ale kontextově uvědomělý tutor, který ví, co studuješ, může generovat cvičný materiál a funguje přes všechny hlavní AI poskytovatele a jejich modely.
+
+**[accounts.mentorize.me](https://accounts.mentorize.me)** zpracovává vše ohledně autentizace a účtu: přihlášení, registraci, správu profilu, předplatné a správu sessions napříč službami. Centralizace tohoto bylo nejdůležitější architektonické rozhodnutí. Každá služba deleguje autentizaci sem místo toho, aby každá udržovala vlastní uživatelský systém.
+
+**`@mentorize/ui`** je sdílený NPM balíček komponent kompatibilních s Nuxt. Každá služba čerpá ze stejné knihovny komponent, takže vizuální konzistence je vynucována na úrovni balíčku, ne přes konvenci a naději.
+
+## Jak se technologický stack změnil
+
+Základ zůstal stejný: Nuxt pro frontend, PostgreSQL pro trvalá data. Co se změnilo, byla vrstva mezi nimi.
+
+Každá služba vystavuje verzované API. Cross-service volání jdou přes tato API. JWT tokeny vydané službou Accounts jsou ověřovány každou jinou službou nezávisle, což znamená, že žádná služba nemusí volat Accounts při každém požadavku – jen ověřit token.
+
+UI balíček je verzován a publikován do NPM registru. Když se komponenta změní, služby se přihlašují k aktualizaci. To je pomalejší než monorepo, kde vše sdílí kód přímo, ale dělá hranice služeb skutečnými. Přelomová změna v knihovně komponent nemůže tiše rozbít službu, která ji ještě nepřijala.
+
+## Model stále platí
+
+Ověření mentoři vytvářejí obsah. Obsah prochází přezkoumáním před publikováním. Příjmy z prodeje kurzů se rozdělují mezi mentora a provoz platformy. Prezenční sezení fungují na modelu rezervace, kde student zvládá logistiku.
+
+Tato struktura se nezměnila. Přebranding zachoval to, co fungovalo, a nahradil části, které omezovaly.
+
+## Co je dál
+
+Produktivní vrstva – dokumenty, prezentace, tabulky – je ve vývoji. Dlouhodobá vize je pracovní prostor, kde učení a nástroje, které ho podporují, žijí pod jedním účtem bez přepínání mezi nesouvisejícími aplikacemi.
+
+Služby jsou nyní živé. Bezplatný tier na AI mentorovi a vzdělávací aplikaci pokrývá spoustu prostoru, než záleží placený plán.
