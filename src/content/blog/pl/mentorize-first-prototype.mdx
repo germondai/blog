@@ -1,0 +1,46 @@
+---
+title: 'Mentorize V1: Budowanie pierwszego prototypu platformy e-learningowej'
+description: 'Jak złożyła się pierwsza wersja Mentorize jako full-stack aplikacja Nuxt z MySQL, interaktywnymi kursami i nauką opartą na wideo – i czego się nauczyłem ją budując.'
+publishDate: 2025-03-13
+tags: ['nuxt', 'personal-projects', 'education', 'open-source']
+---
+
+Każdy projekt ma wersję zero, która nigdy nie uruchamia się czysto. [Mentorize V1](https://old.mentorize.me) to moja wersja, której się udało.
+
+Zaczęło się jako sposób na eksplorację full-stack developmentu od początku do końca: prawdziwa platforma e-learningowa z prawdziwymi użytkownikami, prawdziwymi kursami i prawdziwymi problemami do rozwiązania. Nie projekt tutorialowy. Prawdziwa rzecz.
+
+## Co próbowałem zbudować
+
+Pomysł był prosty: platforma, gdzie mentorzy i uczący się mogą się spotkać, i gdzie materiały edukacyjne żyją obok narzędzi pomagających je przyswoić. Interaktywne kursy, treści wideo, quizy, testy i sposób na zarabianie przez mentorów z tego, co tworzyli.
+
+Model finansowy był prosty. Mentorzy tworzą kursy. Uczący się je kupują. Przychody dzielą się między mentora, rozwój i koszty serwera. Żadnych reklam, żadnego handlu danymi.
+
+## Stos technologiczny
+
+Frontend był oparty na [Nuxt](https://nuxt.com). Composition API Vue 3 sprawiło, że logika komponentów była czytelna, a routing oparty na plikach Nuxt usunął wiele ceremonii konfiguracji. Zbudowałem ponad 50 własnych komponentów dla formularzy, dashboardów, przeglądarek kursów, interfejsów quizów i czatu mentor-uczeń.
+
+Backend zaczął od MySQL. Wybrałem go, bo go znałem i potrzebowałem szybko się poruszać. Model danych nie był skomplikowany: użytkownicy, kursy, zapisy, bloki treści, wyniki quizów.
+
+To się zmieniło gdy złożoność danych relacyjnych urosła. W połowie developmentu przeniosłem się na PostgreSQL. Sama migracja była płynna – schemat był wystarczająco czysty, żeby przejście było głównie kwestią connection stringa i kilku poprawek zapytań.
+
+Treści były oparte na Markdown przez [Nuxt Content](https://content.nuxt.com), który obsługiwał prozę, bloki kodu i osadzone media bez własnej warstwy renderowania.
+
+## Jak to wyglądało w praktyce
+
+Uczeń loguje się, przegląda bibliotekę kursów, zapisuje się i pracuje przez bloki treści we własnym tempie. Quizy pojawiają się wbudowane. Wideo osadzone przez standardowe odtwarzacze. Postęp jest śledzony.
+
+Mentor loguje się, tworzy kurs edytorem, zgłasza go do weryfikacji i zarabia ze sprzedaży. Sesje stacjonarne – warsztaty, wizyty szkolne – odbywały się gdy uczeń ich potrzebował, w miejscu przez niego wybranym. Platforma nie ingerowała, oprócz rezerwacji i płatności.
+
+Tylko dla zweryfikowanych mentorów, nie otwarte zgłoszenia od kogokolwiek. Każdy fragment treści przechodził przez proces recenzji przed opublikowaniem. To utrzymywało wysoką jakość i wiarygodność biblioteki.
+
+## Czego się nauczyłem
+
+Budowanie każdej warstwy samodzielnie jest wolne, ale edukacyjne w sposób, którego startowe zestawy nie zapewniają. Nauczyłem się dlaczego PostgreSQL wygrywa nad MySQL przy złożoności relacyjnej. Nauczyłem się, że schemat treści zaprojektowany dla prostoty staje się ograniczeniem gdy platforma rośnie. Nauczyłem się, że jednorazowe zbudowanie własnego uwierzytelniania uczy dokładnie, dlaczego następnym razem powinieneś użyć biblioteki.
+
+Prototyp nauczył mnie też, czym platforma powinna naprawdę być. Funkcje, o których myślałem, że użytkownicy będą ich chcieli, okazały się mniej ważne niż jakość dopasowania mentorów i niezawodność dostarczania treści.
+
+## Gdzie to skończyło
+
+Mentorize V1 jest nadal dostępna na [old.mentorize.me](https://old.mentorize.me) jako archiwum. To nie jest kierunek, w którym zmierza platforma, ale jest uczciwa co do tego, gdzie zaczęła.
+
+Druga wersja przebudowała wszystko z tego, czego nauczyła pierwsza wersja.

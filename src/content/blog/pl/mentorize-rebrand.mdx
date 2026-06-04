@@ -1,0 +1,48 @@
+---
+title: 'Rebrandig Mentorize na platformę wielousługową'
+description: 'Przekształcenie jednego prototypu e-learningowego w zestaw wzajemnie połączonych usług korporacyjnych: aplikacja edukacyjna, mentor AI, czat zespołowy, dysk w chmurze i współdzielona biblioteka komponentów UI.'
+publishDate: 2025-10-18
+tags: ['personal-projects', 'education', 'saas', 'architecture']
+---
+
+Oryginalny prototyp [Mentorize](https://old.mentorize.me) robił jedną rzecz. Działało, ale wszystko żyło w jednej bazie kodu i jednej bazie danych, a jego rozrastanie oznaczało walkę z kształtem, w którym był zbudowany.
+
+Rebranding nie był kosmetyczny. Była to decyzja o przekształceniu jednego monolitu w zestaw skoncentrowanych usług, które współdzielą uwierzytelnianie, projekt i dane, ale posiadają własne domeny.
+
+## Dlaczego modułowy
+
+Budowanie prototypu nauczyło mnie, gdzie kategorie funkcji faktycznie spadały. Tworzenie i konsumowanie kursów to jeden problem. Tutoring AI to inny problem. Komunikacja zespołowa to trzeci. Przechowywanie w chmurze to czwarty. Współdzielą użytkowników i dane, ale mają różne wymagania dotyczące skalowalności, różne rytmy aktualizacji i różne wzorce UI.
+
+Upychanie wszystkiego w jedną aplikację Nuxt był naturalnym punktem startowym, ale nie zrównoważonym celem. Rozdzielenie ich oznaczało, że każda usługa może ewoluować we własnym tempie bez ryzyka, że zmiana w jednym obszarze spowoduje regresję w innym.
+
+## Usługi
+
+**[Mentorize](https://mentorize.me)** jest teraz centralnym hubem: strona główna, blog, cennik i onboarding społeczności. Miejsce, gdzie zaczynasz przed przejściem gdziekolwiek indziej.
+
+**[app.mentorize.me](https://app.mentorize.me)** to platforma edukacyjna – kursy, quizy, fiszki i interakcja mentor-uczeń. Zbudowana ze znacznie lepszym UX niż V1, integracjami korporacyjnymi (łączniki CRM, LMS) i właściwą warstwą API dla zewnętrznych narzędzi.
+
+**[ai.mentorize.me](https://ai.mentorize.me)** to mentor AI. Nie jest to ogólny wrapper chatbota, ale świadomy kontekstu tutor, który wie, czego się uczysz, może generować materiały ćwiczeniowe i działa przez wszystkich głównych dostawców AI i ich modele.
+
+**[accounts.mentorize.me](https://accounts.mentorize.me)** obsługuje wszystko związane z uwierzytelnianiem i kontem: logowanie, rejestrację, zarządzanie profilem, subskrypcje i zarządzanie sesjami między usługami. Centralizacja tego była najważniejszą decyzją architektoniczną. Każda usługa deleguje uwierzytelnianie tutaj zamiast każda utrzymywać własny system użytkowników.
+
+**`@mentorize/ui`** to współdzielony pakiet NPM komponentów kompatybilnych z Nuxt. Każda usługa czerpie z tej samej biblioteki komponentów, więc spójność wizualna jest wymuszana na poziomie pakietu, a nie przez konwencje i nadzieję.
+
+## Jak zmienił się stos technologiczny
+
+Podstawa pozostała ta sama: Nuxt dla frontendu, PostgreSQL dla trwałych danych. To, co się zmieniło, to warstwa między nimi.
+
+Każda usługa udostępnia wersjonowane API. Wywołania między usługami przechodzą przez te API. Tokeny JWT wydane przez usługę Accounts są niezależnie weryfikowane przez każdą inną usługę, co oznacza, że żadna usługa nie musi wywoływać Accounts przy każdym żądaniu – wystarczy zweryfikować token.
+
+Pakiet UI jest wersjonowany i publikowany do rejestru NPM. Gdy komponent się zmienia, usługi decydują o przyjęciu aktualizacji. Jest to wolniejsze niż monorepo, gdzie wszystko bezpośrednio współdzieli kod, ale sprawia, że granice usług są prawdziwe. Przełomowa zmiana w bibliotece komponentów nie może po cichu zepsuć usługi, która jej jeszcze nie przyjęła.
+
+## Model nadal obowiązuje
+
+Zweryfikowani mentorzy tworzą treści. Treści przechodzą przez recenzję przed publikacją. Przychody ze sprzedaży kursów dzielą się między mentora a operacje platformy. Sesje stacjonarne działają na modelu rezerwacji, gdzie uczeń obsługuje logistykę.
+
+Ta struktura się nie zmieniła. Rebranding zachował to, co działało, i zastąpił części, które ograniczały.
+
+## Co dalej
+
+Warstwa produktywności – dokumenty, prezentacje, arkusze kalkulacyjne – jest w trakcie rozwoju. Długoterminowa wizja to przestrzeń robocza, gdzie nauka i narzędzia ją wspierające żyją pod jednym kontem bez przełączania między niezwiązanymi aplikacjami.
+
+Usługi są teraz dostępne. Bezpłatny tier mentora AI i aplikacji edukacyjnej pokrywa dużo zakresu zanim zacznie mieć znaczenie płatny plan.

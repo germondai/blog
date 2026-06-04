@@ -1,0 +1,51 @@
+---
+title: 'Wznawialne strumienie AI: Jak zadbałem żebyś nigdy nie stracił odpowiedzi'
+description: 'Śledzenie pozycji strumienia po stronie serwera, żeby odświeżenia strony, przerwy połączenia i udostępnione linki do czatu kontynuowały streamowanie dokładnie tam, gdzie skończyły – bez regenerowania.'
+publishDate: 2025-12-08
+tags: ['ai', 'streaming', 'real-time', 'personal-projects', 'architecture']
+---
+
+Interfejsy czatu AI mają problem z niezawodnością, o którym nikt nie mówi wystarczająco dużo. Dostajesz długą, szczegółową odpowiedź w połowie generowania, twoje połączenie przerywa i jest znikniętą. Odświeżasz stronę: znikniętą. Udostępniasz link zanim skończy: druga osoba widzi statyczną częściową odpowiedź, nie żywy strumień.
+
+Wbudowałem wznawialne strumienie w [ai.mentorize.me](https://ai.mentorize.me), żeby naprawić wszystkie trzy przypadki.
+
+## Podstawowy problem
+
+Standardowe streamowanie AI działa tak: wychodzi żądanie, przychodzą chunki, UI je renderuje gdy nadchodzą. Klient trzyma cały stan. Jeśli klient rozłączy się z jakiegokolwiek powodu – zamknięcie zakładki, odświeżenie, przerwa sieci – strumień jest porzucony. Gdy się ponownie połączy, zaczyna nowe żądanie i model generuje od zera.
+
+Dla krótkich odpowiedzi jest to znośne. Dla długich – szczegółowe wyjaśnienia, wieloetapowe implementacje kodu, kompleksowe analizy – jest to naprawdę frustrujące. 60-sekundowa odpowiedź przerwana w 45 sekundach oznacza, że straciłeś 45 sekund generowania.
+
+## Podejście
+
+Naprawą jest przeniesienie śledzenia pozycji strumienia na serwer.
+
+Gdy strumień startuje, serwer tworzy rekord z ID strumienia, kontekstem wiadomości i bieżącym licznikiem pozycji. Każdy chunk zapisany do odpowiedzi jest też zapisywany do przechowywania po stronie serwera z jego indeksem pozycji. Gdy klient się ponownie łączy, wysyła ID strumienia i swoją ostatnio known pozycję. Serwer wznawia dokładnie od tego znaku.
+
+Przy wznawianiu przesyłana jest tylko delta – żadnego ponownego przesyłania treści, którą klient już ma, żadnego regenerowania treści od zera. Model nie musi być w ogóle ponownie wywoływany.
+
+## Co to umożliwia
+
+**Przerwy połączenia**: klient wykrywa rozłączenie i automatycznie się ponownie łączy. Z perspektywy użytkownika jest krótka pauza, a potem tekst kontynuuje się pojawiać. Żadnej akcji użytkownika nie jest wymagana.
+
+**Odświeżenia strony**: gdy strona się przeładuje, aplikacja sprawdza aktywne ID strumieni przed renderowaniem widoku konwersacji. Jeśli zostanie znaleziony, ponownie się dołącza i generowanie kontynuuje dokładnie tam, gdzie skończyło. Odświeżanie w połowie strumienia jest teraz nudne.
+
+**Udostępnione linki**: to jest najbardziej użyteczne do współpracy. Jeśli udostępnisz link do czatu podczas generowania odpowiedzi AI, każdy kto otworzy ten link widzi strumień w czasie rzeczywistym. Nie zrzut ekranu, nie kopię – żywy feed tego samego generowania. Wiele osób może oglądać jak pojawia się długie techniczne wyjaśnienie, dyskutować o nim gdy generuje, i od razu zadawać pytania uzupełniające gdy skończy.
+
+## Notatki implementacyjne
+
+Śledzenie pozycji musi być wydajne. Przechowuję stan strumienia w Redis z TTL zamiast trwałej bazy danych – aktywne strumienie są krótkotrwałe i nie potrzebują trwałości poza swoim czasem życia. Klient przechowuje ID strumienia w sesji i wysyła je z każdą próbą ponownego połączenia.
+
+W przypadku udostępnionego linku, każdy podłączony klient subskrybuje to samo ID strumienia. Serwer rozdziela chunki do wszystkich aktywnych subskrybentów. Logika rozdziału jest taka sama jak każdy wzorzec pub/sub: publikuj do kanału kluczowanego przez ID strumienia, subskrybuj gdy nowy klient łączy się z tym ID.
+
+Przypadki brzegowe warte obsługi:
+- Strumień kończy się gdy klient jest rozłączony. Przy wznawianiu serwer wykrywa że strumień jest zakończony i wysyła całą pozostałą treść naraz zamiast udawać że jest nadal żywy.
+- Wiele klientów współdzielących link widzi identyczny stan, bo wszyscy czytają z tej samej sekwencji pozycji, a nie każdy utrzymuje swoją własną.
+- Warunki sieci mogą spowodować dostarczenie chunków nie po kolei. Indeks pozycji pozwala klientowi wykryć luki i czekać na brakujący chunk przed renderowaniem, zamiast wyświetlać treść nie po kolei.
+
+## Jak to wygląda w praktyce
+
+Przeważnie niewidzialnie, o co chodzi. Przestajesz zauważać, że masz połączenie sieciowe. Odpowiedzi, które wcześniej wymagały czuwania, teraz po prostu działają bez względu na to, co stanie się z twoim połączeniem w środku.
+
+Do współpracy, funkcja współdzielonego strumienia zamieniła coś, co wcześniej wymagało udostępniania ekranu, w coś, co po prostu działa z linku.
+
+Funkcja jest teraz na żywo na [ai.mentorize.me](https://ai.mentorize.me). Uruchom długą odpowiedź i odśwież stronę, żeby zobaczyć jak kontynuuje. Udostępnij link komuś i obserwuj jak widzi ten sam strumień.
