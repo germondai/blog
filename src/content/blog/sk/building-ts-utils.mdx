@@ -1,0 +1,72 @@
+---
+title: 'ts-utils: TypeScript utilita knižnica pokrývajúca takmer všetko'
+description: 'Viac ako dvadsať utilita modulov pre TypeScript pokrývajúcich reťazce, polia, dátumy, matematiku, farby, kryptografiu, URL adresy, médiá a ďalšie. Jeden balíček, konzistentne typizovaný, postavený s Bun.'
+publishDate: 2025-05-14
+tags: ['typescript', 'open-source', 'utilities', 'bun']
+---
+
+Každý TypeScript projekt hromadí rovnaké utility. Funkcia na skracovanie reťazca. Debounce pomocník. Niečo na formátovanie čísla s čiarkami. Funkcia na konverziu farieb, ktorú si vytiahol zo Stack Overflow pred rokmi.
+
+[@germondai/ts-utils](https://github.com/germondai/ts-utils) je môj pokus dať to všetko do jedného konzistentne udržiavaného, plne typizovaného balíčka namiesto kopírovania medzi projektmi.
+
+## Čo je v ňom
+
+Knižnica je organizovaná do modulov, každý pokrývajúci konkrétnu doménu:
+
+**`string`**: orezanie, veľkosť písmen, skrátenie, generovanie slugov, interpolačné pomocníky.
+
+**`array`**: chunking, deduplikácia, splošťovanie, radenie, zoskupovanie, miešanie.
+
+**`object`**: hlboké zlúčenie, hlboký klon, filtrovanie kľúčov, transformačné utility.
+
+**`math`**: clampovanie, zaokrúhľovanie, generovanie rozsahov, štatistické pomocníky.
+
+**`time`**: formátovanie, parsovanie, výpočet trvania, relatívne časové reťazce.
+
+**`color`**: konverzie hex/rgb/hsl, kontroly svetlosti, miešanie farieb.
+
+**`url`**: budovanie, parsovanie, manipulácia query stringom, path utility.
+
+**`regex`**: predpripravené vzory pre e-maily, URL adresy, slugy, heslá a ďalšie.
+
+**`crypto`**: hashovacie pomocníky, generovanie UUID, utility náhodných reťazcov.
+
+**`data`**: serializácia, validačné pomocníky, schéma utility.
+
+**`media`**: detekcia MIME typu, formátovanie veľkosti súboru, pomocníky rozmerov obrázkov.
+
+**`promise`**: logika opakovania, timeoutové obaly, pomocníky súbežnosti.
+
+**`function`**: debounce, throttle, memoize, compose.
+
+**`type`**: kontroly typov za runtime a zužujúce utility.
+
+**`convertor`**: konverzie jednotiek, konverzia číselnej základne, kódovacie utility.
+
+**`normalize`**: normalizácia vstupu pre mená, telefónne čísla, adresy.
+
+**`collection`**: nemenné operácie zbierok.
+
+**`constants`**: bežné konštantné hodnoty používané naprieč projektmi.
+
+**`errors`**: typizované triedy chýb a utility na spracovanie chýb.
+
+**`size`**: formátovanie bajtov, utility veľkosti viewportu.
+
+## Inštalácia
+
+```bash
+bun add @germondai/ts-utils
+# alebo
+npm install @germondai/ts-utils
+```
+
+Všetko je exportované z root balíčka s plnými TypeScript typmi. Tree-shaking funguje, takže bundluješ len to, čo skutočne importuješ.
+
+## Prečo jeden balíček
+
+Alternatívou je kopírovanie utilít medzi projektmi alebo udržiavanie samostatných mikro-balíčkov pre každú doménu. Oboje vytvára drift: string utility v projekte A sa odchýlia od tých v projekte B a nabudúce, keď budeš musieť opraviť bug, opravuješ ho na dvoch miestach.
+
+Jeden balíček znamená jeden zdroj pravdy. Oprav to raz, aktualizuj to všade.
+
+Zdrojový kód je na [GitHube](https://github.com/germondai/ts-utils) pod licenciou MIT.

@@ -1,0 +1,75 @@
+---
+title: 'Budovanie bezplatného icon API pre portfóliá a README súbory vývojárov'
+description: 'Každé vývojárske portfólio a GitHub README si zaslúži ostré ikony technologického stacku. Postavil som bezplatné, self-hostované API, ktoré z URL vygeneruje pekný pás ikon – bez nutnosti účtu, bez vodoznakov, bez limitov.'
+publishDate: 2026-04-15
+tags: ['open-source', 'developer-tools', 'api', 'bun']
+---
+
+Keď vývojári zdieľajú, čo budujú, chcú uznanie za nástroje, ktoré použili. Čistý riadok ikon technologického stacku v README, bočný panel portfólia alebo osobná stránka je jedným z najrýchlejších spôsobov, ako komunikovať, čo vieš a na čom ti záleží.
+
+Existujúce možnosti mali všetky rovnaké problémy: zlé ikony, nepraktické veľkosti, nútené vodoznaky alebo limity sadzby, ktoré nastúpili vo chvíli, keď si ich začal používať vážne. Preto som postavil [@germondai/icons](https://github.com/germondai/icons), self-hostované icon API bežiace na [icons.germondai.com](https://icons.germondai.com).
+
+Zadaj URL ako túto:
+
+```
+/icons?i=bun,astro,typescript:mono:fff&theme=dark
+```
+
+a vráti pekný SVG pás, ktorý môžeš vložiť kamkoľvek.
+
+## Ako funguje formát URL
+
+Každá ikona je zadaná ako `slug[:možnosť...]`. Možnosti sú rozpoznané podľa svojho tvaru, bez nutnosti memorovať explicitné názvy kľúčov:
+
+| Vzor | Čo robí |
+|------|---------|
+| `react` | originálne farby, pozadie témy |
+| `react:mono` | jednofarebná verzia |
+| `react:mono:fff` | jednofarebná, biela výplň |
+| `react:transparent` | priehľadné pozadie |
+| `react:full` | vyplní celú bunku, bez odsadenia |
+| `react:bg1a1a2e` | explicitná farba pozadia |
+| `react:r0.5` | zaoblené rohy (0 až 1) |
+
+Je tu užitočný rozdiel, ktorý stojí za zmienku: `react:fff` nastaví farbu výplne ikony na bielu, zatiaľ čo `react:bgfff` nastaví pozadie bunky na biele. Možno ich kombinovať: `react:mono:fff:bg1e1e2e:r0.8`.
+
+Parser rozpoznáva každú časť automaticky. Hex reťazec o 3–6 znakoch je farba výplne. Reťazec s predponou `bg` je farba pozadia. Číslo s predponou `r` je polomer rohu. Všetko sa skladá v ľubovoľnom poradí.
+
+## Štyri varianty, elegantné fallbacky
+
+Každá ikona je dodávaná vo až štyroch variantoch: `original` (plné farby), `plain` (zjednodušená výplň), `line` (obrysová) a `mono` (jednofarebná). Ak požiadaš o variant, ktorý pre danú ikonu neexistuje, API automaticky zostúpi po zozname priorít. Nikdy nedostaneš rozbitý obrázok.
+
+## Témy
+
+Parameter `&theme=` aplikuje pomenovanú farbu pozadia na všetky bunky naraz. Existuje viac ako tucet tém vychádzajúcich z farebných paliet Tailwind CSS. Jednotlivé ikony môžu prepísať tému vlastnými možnosťami, takže v jednom páse možno mixovať pozadia.
+
+## Pod kapotou
+
+Služba beží na **Bun** s **Elysia**. Vykresľovanie SVG používa `@resvg/resvg-js` a rasterová konverzia (PNG, WebP) využíva `Bun.Image`. Typická SVG odpoveď prichádza za menej ako 2 ms. Rasterové formáty sú rate-limitované na 20 požiadaviek za minútu na IP, pretože konverzia formátov je náročnejšia.
+
+Odpovede sú cachované podľa celého query stringu. SVG hity trvajú menej ako 1 ms, pretože kontrola cache je rýchlejšia ako parsovanie. Chýbajúce slugy sa vrátia ako prázdne bunky a sú hlásené v response hlavičke `X-Missing-Icons`, takže presne vieš, čo sa nepodarilo rozpoznať.
+
+## Endpointy
+
+| Cesta | Čo robí |
+|-------|---------|
+| `/icons` | vygeneruj pás |
+| `/icons/all` | prehľadateľná galéria všetkých slugov |
+| `/icons/list` | plochý zoznam slugov pre nástroje |
+| `/meta/themes` | dostupné témy a farby |
+| `/meta/variants` | dostupné varianty pre každú ikonu |
+
+## Spustenie vlastnej inštancie
+
+```bash
+git clone https://github.com/germondai/icons
+cd icons
+bun install
+bun dev
+```
+
+Docker image má nakoniec menej ako 200 MB vďaka viacstupňovému buildu. Tento blog používa službu pre sociálne ikony v bočnom paneli: jednofarebné ikony na priehľadnom pozadí, ktoré sa čisto prelínajú s tmavými témami.
+
+---
+
+Zdrojový kód na [GitHube](https://github.com/germondai/icons) pod licenciou MIT.

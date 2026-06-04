@@ -1,0 +1,46 @@
+---
+title: 'Budovanie portfólia, ktoré skutočne ukazuje, kto si'
+description: 'Osobné portfólio by malo robiť viac ako len vypisovať zručnosti. Moje má holografické tilt efekty, parallax scrollovanie, časovú os mojej práce a živý výkladný priestor projektov. Tu je popis, ako som ho postavil s Nuxt.'
+publishDate: 2024-05-20
+tags: ['portfolio', 'nuxt', 'personal-projects', 'vue']
+---
+
+Väčšina vývojárskych portfólií vyzerá rovnako. Nadpis, sekcia zručností s ikonami, tri karty projektov a kontaktný formulár. Plnia políčka bez zanechania akéhokoľvek dojmu.
+
+Chcel som niečo iné. Moje portfólio na [germondai.com](https://germondai.com) je postavené tak, aby pôsobilo živo, hýbalo sa a skutočne ukazovalo, čo som schopný postaviť – nie len to opisovalo.
+
+## Čo obsahuje
+
+Web je organizovaný do štyroch sekcií. Landing ma okamžite predstaví. Sekcia O mne dáva viac kontextu o tom, kto som a čomu sa venujem. Časová os sleduje moju cestu projektmi a učením. A sekcia Práca ukazuje samotné projekty, každý s odkazom na živé demo.
+
+Tá posledná časť je dôležitejšia, ako väčšina portfólií uznáva. Ktokoľvek môže uviesť názov projektu a technologický stack. Priamy odkaz na fungujúce demo hovorí: táto vec funguje.
+
+## Efekty
+
+Časť, ktorú si väčšina ľudí všimne ako prvú, sú vizuálne efekty, a všetky sú zámerné.
+
+**Holo tilt** spôsobuje, že karty reagujú na pohyb kurzora holografickým trblietaním. Je to efekt, ktorý vyzerá ako kúzelný trik, keď ho prvýkrát vidíš, a ako prirodzená súčasť rozhrania, keď ho vidíš tretíkrát.
+
+**Parallax** vrství prvky v rôznych rýchlostiach scrollovania, čím dáva stránke skutočnú hĺbku namiesto plochého scrollovania. Je to jemné, ale mení to, ako sa stránkou pohybuje.
+
+**Reveal** animuje prvky do pohľadu, ako vstupujú do viewportu, takže stránka sa buduje sama namiesto toho, aby vypustila všetko naraz.
+
+**Flare** pridáva svetelné pruhy, ktoré sledujú interakciu, podobné efektu šošovkového záblesku v mojich iných projektoch.
+
+**Float** udržuje určité prvky v jemnom večnom pohybe, čím dáva stránke pocit života aj keď používateľ nič nerobí.
+
+Všetky tieto sú postavené vo Vue a používajú CSS animácie kde je to možné, aby veci zostali výkonné.
+
+## Stack
+
+Portfólio beží na [Nuxt 4](https://nuxt.com) s Vue 3. Styling je TailwindCSS. [VueUse](https://vueuse.org) spracováva integrácie prehliadačového API ako je pozícia myši a sledovanie scrollovania. [VeeValidate](https://vee-validate.logaretm.com) spravuje validáciu kontaktného formulára. Internacionalizáciu zabezpečuje Vue I18n, pričom web je dostupný vo viacerých jazykoch.
+
+Kontaktný formulár je pripojený k API, ktoré ukladá odoslania do databázy. Nie je to len mailto odkaz.
+
+## Prečo si postaviť vlastné
+
+Treťostranní stavitelia portfólií sú pohodlní, ale prichádzajú s obmedzeniami. Obmedzené rozloženia. Obmedzené interakcie. Zvyčajne subdoména alebo logo niekde, kde si o to nepožiadal. A kľúčovo, neukazujú nič o tvojej schopnosti stavať.
+
+Portfólio, ktoré si sám postavil, je tiež projekt. Je to dôkaz.
+
+Zdrojový kód je na [GitHube](https://github.com/germondai/portfolio) a živá verzia je na [germondai.com](https://germondai.com).

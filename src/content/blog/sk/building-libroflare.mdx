@@ -1,0 +1,34 @@
+---
+title: 'LibroFlare: Jedna aplikácia pre knihy, audioknihy, komiksy a mangu'
+description: 'Čítanie dnes znamená žonglovanie s viacerými aplikáciami podľa formátu. LibroFlare je naša odpoveď: jedna digitálna knižnica pre každý formát, postavená s Nuxt na frontende a Symfony na backende.'
+publishDate: 2024-12-22
+tags: ['books', 'audiobooks', 'manga', 'personal-projects', 'nuxt']
+---
+
+Čítanie znamenalo jedno miesto: policu. Teraz to znamená navigáciu štyrmi alebo piatimi rôznymi aplikáciami podľa toho, čo chceš čítať. Kindle pre e-knihy. Samostatná aplikácia pre audioknihy. Ďalšia pre mangu alebo komiksy. Každá so svojím vlastným účtom, vlastnou synchronizáciou, vlastným predplatným.
+
+[LibroFlare](https://libroflare.germondai.com) je projekt, ktorý som postavil s [@bigjohnn1](https://github.com/bigjohnn1), aby sme to napravili. Jedna knižnica. Každý formát.
+
+## Čo pokrýva
+
+Knihy, audioknihy, komiksy a manga žijú všetky v rovnakom rozhraní. Myšlienka je, že tvoj čitateľský život by nemal byť rozdelený naprieč platformami len preto, že formát je iný. Ak prepínaš z čítania románu na jeho počúvanie pri ceste do práce, si v rovnakej aplikácii.
+
+Pohľad na knižnicu umiestňuje tvoju zbierku do stredu pozornosti. Prehľadávaj podľa formátu, žánru alebo hľadaj konkrétnu vec. Všetko je postavené pre rýchlosť, bez načítavacích obrazoviek pre veci, ku ktorým si už pristúpil.
+
+## Čitateľský zážitok
+
+Každý formát má svoju vlastnú optimalizovanú čítačku. Textové knihy majú čistú typografiu, nastaviteľnú veľkosť písma a sledovanie pokroku. Audioknihy majú trvalý prehrávač, ktorý zostáva stranou, keď prehľadávaš. Komiksy a manga majú čítačku na celú obrazovku s navigáciou stránky, ktorá sa cíti natívne na deskope aj telefóne.
+
+Pokrok sa synchronizuje naprieč zariadeniami. Pokračuj na telefóne tam, kde si skončil na notebooku.
+
+## Ako sme to postavili
+
+Frontend je postavený na [Nuxt](https://nuxt.com) s Vue 3, voľba, ktorú sme urobili, pretože serverové renderovanie je dôležité pre aplikáciu s takým množstvom obsahu. Backend je [Symfony](https://symfony.com), ktorý zabezpečuje API, autentizáciu a správu obsahu.
+
+Zachovali sme stack dostatočne známy, aby sme sa mohli rýchlo pohybovať, ale dostatočne robustný pre škálovanie. Dva frameworky dobre spolupracujú, keď je API kontrakt čistý, a udržiavanie frontendu a backendu v samostatných adresároch vynucovalo túto disciplínu.
+
+## Čo ho odlišuje
+
+Väčšina aplikácií digitálnej knižnice je navrhnutá okolo katalógu konkrétneho vydavateľa alebo jedného typu obsahu. LibroFlare je formátovo agnostický od základov. Či už ide o 600-stranový román, 20-minútovú audioknihu dlžky podcastu alebo zväzok mangy, všetci patria na rovnaké miesto.
+
+Projekt je živý na [libroflare.germondai.com](https://libroflare.germondai.com). Stále pridávame funkcie, ale základný čitateľský zážitok je solídny. Ak ťa bavia knihy v akomkoľvek formáte, stojí za pozretie.

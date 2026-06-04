@@ -1,0 +1,36 @@
+---
+title: 'VueI: Budovanie Vue UI komponentovej knižnice ako Nuxt modulu'
+description: 'VueI je open-source Vue 3 UI komponentová knižnica distribuovaná ako Nuxt modul. Nainštaluj ju jedným príkazom, získaj kompletnú sadu typizovaných, prístupných komponentov postavených na TailwindCSS.'
+publishDate: 2025-07-30
+tags: ['vue', 'nuxt', 'open-source', 'ui', 'typescript']
+---
+
+Každý Nuxt projekt začína rovnako. Potrebuješ komponent tlačidla. Modal. Input so stavmi validácie. Buď ich píšeš od nuly, kopíruješ z predchádzajúceho projektu, alebo siahnuješ po UI knižnici, ktorá môže alebo nemusí zodpovedať tvojmu dizajn systému.
+
+[VueI](https://github.com/germondai/vuei) je moja odpoveď na tento problém: Vue 3 komponentová knižnica distribuovaná ako Nuxt modul, s komponentami postavenými na TailwindCSS a plne typizovanými TypeScriptom.
+
+## Inštalácia
+
+```bash
+pnpx nuxi module add @vuei/nuxt
+```
+
+To je celá inštalácia. Modul registruje všetky komponenty globálne v tvojej Nuxt aplikácii. V jednotlivých súboroch nie sú potrebné žiadne importy.
+
+## Na čom je postavená
+
+Stack komponentov je Vue 3 s Composition API, TypeScript po celej dĺžke a TailwindCSS pre styling. Modul používa Nuxt's module API na automatický import komponentov a vystavenie možností konfigurácie prostredníctvom `nuxt.config.ts`.
+
+Vývojové prostredie zahŕňa playground aplikáciu pre iteráciu komponentov bez samostatného projektu, Vitest pre unit testovanie a ESLint pre konzistenciu kódu.
+
+## Prečo konkrétne Nuxt modul
+
+Distribúcia ako Nuxt modul namiesto prostej Vue knižnice mení spôsob, akým sa komponenty integrujú. Zúčastňujú sa Nuxtovho systému auto-importu, build pipeline a akéhokoľvek správania server-side renderingu. Komponenty nie sú len dostupné; sú súčasťou frameworku.
+
+To tiež znamená, že konfigurácia môže ísť do `nuxt.config.ts` vedľa všetkého ostatného, čím sa nastavenie projektu zachováva konsolidované.
+
+## Stav
+
+VueI je aktívne vyvíjaná. Základná sada komponentov je na mieste a rozrastá sa. Ak stavíš Nuxt projekt a chceš typizované, prístupné komponenty, ktoré fungujú s TailwindCSS, stojí za pridanie.
+
+Hlásenie problémov, spätná väzba a príspevky sú vítané na [GitHube](https://github.com/germondai/vuei). Knižnica je pod licenciou MIT.
