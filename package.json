@@ -1,17 +1,39 @@
 {
   "name": "@germondai/blog",
   "version": "1.0.0",
-  "description": "Self-hostable personal blog - FOSS, Astro 6, single-file config",
+  "description": "Self-hostable personal blog - a FOSS, Astro 6 SSG with i18n, MDX, and single-file config",
   "license": "AGPL-3.0-or-later",
-  "author": "germondai <germondai@gmail.com> (https://germondai.com)",
-  "homepage": "https://github.com/germondai/blog",
+  "author": {
+    "name": "germondai",
+    "url": "https://github.com/germondai"
+  },
+  "homepage": "https://github.com/germondai/blog#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/germondai/blog.git"
+    "url": "git+https://github.com/germondai/blog.git"
   },
   "bugs": {
     "url": "https://github.com/germondai/blog/issues"
   },
+  "keywords": [
+    "blog",
+    "personal-blog",
+    "astro",
+    "astro-blog",
+    "self-hosted",
+    "self-hostable",
+    "ssg",
+    "static-site",
+    "mdx",
+    "i18n",
+    "multilingual",
+    "typescript",
+    "tailwindcss",
+    "foss",
+    "open-source",
+    "pwa",
+    "docker"
+  ],
   "engines": {
     "bun": ">=1.3.14"
   },
@@ -62,5 +84,14 @@
     "bun-types": "^1.3.14",
     "husky": "^9.1.7",
     "typescript": "^6.0.3"
-  }
+  },
+  "trustedDependencies": [
+    "sharp"
+  ],
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions"
+  ]
 }
