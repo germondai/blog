@@ -1,17 +1,26 @@
 FROM oven/bun:1.3.14-slim AS base
+
 WORKDIR /app
 
+# ── install ──────────────────────────────────────────────────────────────────
 FROM base AS install
+
 COPY package.json bun.lock ./
+
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile
 
+# ── build ────────────────────────────────────────────────────────────────────
 FROM base AS build
+
 ENV NODE_ENV=production
+
 COPY --from=install /app/node_modules ./node_modules
 COPY . .
+
 RUN bun run build
 
+# ── release ──────────────────────────────────────────────────────────────────
 FROM nginx:alpine AS release
 
 LABEL org.opencontainers.image.title="@germondai/blog" \
@@ -21,8 +30,8 @@ LABEL org.opencontainers.image.title="@germondai/blog" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later" \
       org.opencontainers.image.authors="germondai <germondai@gmail.com>"
 
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist        /usr/share/nginx/html
+COPY nginx.conf                    /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
