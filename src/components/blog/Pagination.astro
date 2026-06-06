@@ -17,38 +17,42 @@ const i18n = t(lang)
 
 {
   lastPage > 1 && (
-    <nav class="mt-10 flex items-center justify-center gap-2" aria-label="Pagination">
-      {url.prev ? (
-        <a
-          href={url.prev}
-          class="flex items-center gap-1.5 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 transition-all hover:border-white/20 hover:text-white/90"
-          style="background:rgba(255,255,255,0.05)"
-          aria-label={i18n.pagination.previous}
-        >
-          {i18n.pagination.previous}
-        </a>
-      ) : (
-        <span class="cursor-not-allowed rounded-lg border border-white/5 px-4 py-2 text-sm text-white/20 opacity-50">
-          {i18n.pagination.previous}
-        </span>
-      )}
+    <nav class="mt-10 grid grid-cols-[minmax(0,10rem)_auto_minmax(0,10rem)] items-center gap-8" aria-label="Pagination">
+      <div class="flex">
+        {url.prev ? (
+          <a
+            href={url.prev}
+            class="flex w-full items-center justify-center whitespace-nowrap rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 transition-all hover:border-white/20 hover:text-white/90"
+            style="background:rgba(255,255,255,0.05)"
+            aria-label={i18n.pagination.previous}
+          >
+            {i18n.pagination.previous}
+          </a>
+        ) : (
+          <span class="flex w-full cursor-not-allowed items-center justify-center whitespace-nowrap rounded-lg border border-white/5 px-4 py-2 text-sm text-white/20 opacity-50">
+            {i18n.pagination.previous}
+          </span>
+        )}
+      </div>
 
-      <span class="px-3 text-sm text-white/40">{currentPage} / {lastPage}</span>
+      <span class="px-3 text-center text-sm text-white/40">{currentPage} / {lastPage}</span>
 
-      {url.next ? (
-        <a
-          href={url.next}
-          class="flex items-center gap-1.5 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 transition-all hover:border-white/20 hover:text-white/90"
-          style="background:rgba(255,255,255,0.05)"
-          aria-label={i18n.pagination.next}
-        >
-          {i18n.pagination.next}
-        </a>
-      ) : (
-        <span class="cursor-not-allowed rounded-lg border border-white/5 px-4 py-2 text-sm text-white/20 opacity-50">
-          {i18n.pagination.next}
-        </span>
-      )}
+      <div class="flex justify-end">
+        {url.next ? (
+          <a
+            href={url.next}
+            class="flex w-full items-center justify-center whitespace-nowrap rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 transition-all hover:border-white/20 hover:text-white/90"
+            style="background:rgba(255,255,255,0.05)"
+            aria-label={i18n.pagination.next}
+          >
+            {i18n.pagination.next}
+          </a>
+        ) : (
+          <span class="flex w-full cursor-not-allowed items-center justify-center whitespace-nowrap rounded-lg border border-white/5 px-4 py-2 text-sm text-white/20 opacity-50">
+            {i18n.pagination.next}
+          </span>
+        )}
+      </div>
     </nav>
   )
 }
