@@ -175,8 +175,8 @@ const isDev = import.meta.env.DEV
       style="z-index:9999"
       role="dialog"
       aria-modal="true"
-      aria-hidden="true"
       aria-label={i18n.ui.preview}
+      inert
     >
       <div id="lightbox-bg" class="absolute inset-0" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)"></div>
 
@@ -272,13 +272,13 @@ const isDev = import.meta.env.DEV
           if (img.complete && img.naturalWidth) init()
           else img.onload = init
           lb!.style.opacity = '1'; lb!.style.pointerEvents = 'auto'
-          lb!.removeAttribute('aria-hidden')
+          lb!.removeAttribute('inert')
           document.body.style.overflow = 'hidden'
         }
 
         const close = () => {
           lb!.style.opacity = '0'; lb!.style.pointerEvents = 'none'
-          lb!.setAttribute('aria-hidden', 'true')
+          lb!.setAttribute('inert', '')
           document.body.style.overflow = ''
           setTimeout(() => { img.src = ''; resetPan(); zoom = 1; commit() }, 200)
         }
