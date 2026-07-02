@@ -1,0 +1,115 @@
+---
+title: 'Budování kryptografického toolkitu se zaměřením na lokální provoz'
+description: 'Generátory hesel, JWT dekodéry, hashovací nástroje – všechny po vás chtějí důvěřovat serveru. Germond Security provádí vše ve vašem prohlížeči a dodává stejný kód jako CLI a importovatelnou knihovnu.'
+publishDate: 2026-06-16
+tags: ['security', 'cryptography', 'open-source', 'typescript', 'vue']
+---
+
+Většina kryptografických nástrojů na webu má stejný problém. Vložíte JWT do dekodéru a obsah přejde přes síť na cizí server. Zadáte heslo do kontroly síly a to heslo skončí někde v HTTP logu. „HTTPS znamená bezpečnost" míjí pointu — server je stále hrozba.
+
+[Germond Security](https://security.germondai.com) nic nikam neposílá. Každá operace běží ve vašem prohlížeči nad `node:crypto`, v prohlížeči polyfillovaném přes WebCrypto. Jediný klíč `localStorage`, který se zapíše, je přepínač tématu. Obnovte stránku a veškerý vstup analyzátoru zmizí.
+
+Dodává se jako tři věci sdílející jeden codebase: webová SPA, CLI (`gsec`) a TypeScript knihovna.
+
+## Co umí
+
+| Kategorie | Nástroje |
+|-----------|----------|
+| Generátory | Hesla, přístupové fráze (Diceware 2000+ slov), tajné klíče, API klíče |
+| ID | UUID v1–v5/v7, NanoID, ULID, KSUID, CUID |
+| Hashe | SHA-1/256/384/512, HMAC, scrypt, PBKDF2 |
+| Šifry | AES-256-GCM, JWT HS256, klíčové páry RSA/Ed25519/ECDSA |
+| Enkodéry | base32, base58, base64, hex, octal, binárně — obousměrně |
+| Analyzátory | Síla hesla, entropie, odhad doby prolomení |
+
+Vše je implementováno ručně — žádné externí enkódovací knihovny, žádný JWT balíček, žádné generátory ID třetích stran.
+
+## Jeden zdroj, tři výstupy
+
+Monorepo má dvě aplikace (`web`, `cli`) a hlavní balíček (`@germondai/security`). Webová aplikace přistupuje ke knihovně přes Vite path alias, který ukazuje přímo na TypeScript zdroj — ne na zkompilovaný výstup:
+
+```ts
+// apps/web/vite.config.ts
+"@germondai/security": fileURLToPath(
+  new URL("../../packages/security/src/index.ts", import.meta.url)
+)
+```
+
+Mezi knihovnou a webovou aplikací není žádný samostatný build krok. Turborepo řídí pořadí závislostí pro CLI, ale webová aplikace importuje přímo ze zdroje. Změňte funkci v `packages/security` a oba výstupy ji zachytí při dalším uložení.
+
+## RNG metodou rejection sampling
+
+Zjevný přístup k výběru náhodného znaku ze sady je `charset[randomBytes(1)[0] % charset.length]`. Funguje, ale je mírně zkreslený. Pokud délka sady znaků nedělí 256 beze zbytku, znaky s nižším indexem se vyskytují o něco častěji.
+
+```ts
+function uniformInt(n: number): number {
+  const limit = 256 - (256 % n)
+  let x: number
+  do { x = randomBytes(1)[0] } while (x >= limit)
+  return x % n
+}
+```
+
+Rejection sampling čerpá bajty, dokud nezíská takový, který je pod největším násobkem `n` vejdoucím se do rozsahu bajtu, a pak vezme modulo. Každý znak hesla, každý znak NanoID, každé slovo přístupové fráze se vybírá tímto způsobem.
+
+## Crypto shim pro různá prostředí
+
+Spuštění `node:crypto` v prohlížeči přes `vite-plugin-node-polyfills` narazí na problém: `createHash()` z `crypto-browserify` v moderních Vite nastaveních vyhazuje výjimku (`Cannot read properties of undefined (reading 'call')`). Shim detekuje `globalThis.crypto.subtle` a místo toho směruje na nativní WebCrypto:
+
+```ts
+async function digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer> {
+  if (globalThis.crypto?.subtle) {
+    return globalThis.crypto.subtle.digest(algorithm, data)
+  }
+  const { createHash } = await import('node:crypto')
+  return createHash(algorithm.replace('-', '').toLowerCase())
+    .update(data)
+    .digest()
+    .buffer as ArrayBuffer
+}
+```
+
+Obě cesty vrátí stejné bajty. Prohlížeč dostane nativní výkon WebCrypto; Node a Bun dostanou `node:crypto`. Duální synchronní a asynchronní varianty existují pro AES-GCM a generování klíčových párů ze stejného důvodu — Ed25519 přes WebCrypto je stále nespolehlivé (Chrome 113+, Safari 17+, Firefox 130+), takže asynchronní varianta zachycuje výjimky a přepíná na zálohu.
+
+## Efektivní entropie v analyzátoru hesel
+
+Analyzátor síly rozlišuje dvě čísla entropie. Naivní entropie je `log2(charsetPool) × délka` — co dává matematika hrubé síly za předpokladu plně náhodných, nezávislých znaků. Efektivní entropie odečítá za detekované vzory:
+
+- Běžná slova: ~10 bitů za každou nalezenou shodu ve slovníku
+- Klávesnicové sekvence: `qwerty`, `12345`, `zxcvbn`
+- Opakující se znaky a podřetězce
+- Vzory dat: čtyřciferné roky, formáty MM/DD
+
+Detekce slov respektuje CamelCase. `MyDog'sNameIsRex` se na základě přechodů velikosti písmen a oddělovačů rozdělí na `["My", "Dog", "s", "Name", "Is", "Rex"]` před prohledáváním slovníku. Slova kratší než 6 znaků jsou ignorována, aby se předešlo falešným poplachům z náhodných sekvencí znaků obsahujících krátká běžná slova.
+
+Výstup odpovídá pěti scénářům doby prolomení:
+
+| Scénář | Rychlost útoku |
+|--------|---------------|
+| Online (s omezením) | 100/hod |
+| Offline pomalý hash (bcrypt) | 10 000/s |
+| Offline rychlý hash (MD5) | 10 mld/s |
+| Distribuovaný GPU cluster | 100 mld/s |
+| Kvantový (Groverův algoritmus) | sqrt(keyspace)/s |
+
+Heslo, které vypadá silně na naivní entropii, často spadne o dvě nebo tři úrovně na efektivní entropii. `MyDog'sNameIsRex!2024` má 82 naivních bitů, ale výrazně pod 40 efektivními bity, jakmile se odečte pět slovníkových shod a vzor roku.
+
+## CLI
+
+Spuštění `bunx gsec` bez argumentů otevře interaktivního průvodce pokrývajícího všech pět kategorií. S argumenty průvodce přeskočí:
+
+```bash
+bunx gsec gen password -l 24 --no-symbols
+bunx gsec gen id --type uuid-v7 -n 10
+bunx gsec hash sha256 "hello world"
+bunx gsec cipher aes-gcm encrypt --passphrase secret "message"
+bunx gsec analyze strength "MyDog'sNameIsRex!2024"
+```
+
+Příznak `-r` při generování hesla zajistí, že se ve výstupu objeví alespoň jeden znak z každé vybrané třídy. `-x` odstraní nejednoznačné znaky (`0Oo1lI|`). Oboje ověřuje smoke test v CI — pipeline vygeneruje skutečná hesla a zkontroluje omezení pomocí bashe.
+
+## Nasazení
+
+Třífázový Docker build: `turbo prune --docker` ořízne monorepo pouze na tranzitivní závislosti webové aplikace, Bun builder instaluje a kompiluje, nginx:alpine obsluhuje statickou SPA. Runtime image neobsahuje Node ani Bun.
+
+Kód je na [github.com/germondai/security](https://github.com/germondai/security). CLI funguje dnes; webové rozhraní pokrývá většinu kategorií. Pár věcí v UI stále chybí (podpora argon2, lepší správa klíčových párů) a jsou na seznamu.

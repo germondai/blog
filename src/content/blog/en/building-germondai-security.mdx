@@ -1,0 +1,115 @@
+---
+title: 'Building a Local-First Cryptography Toolkit'
+description: 'Password generators, JWT decoders, hash tools — they all ask you to trust a server. Germond Security runs everything in your browser and ships the same code as a CLI and importable library.'
+publishDate: 2026-06-16
+tags: ['security', 'cryptography', 'open-source', 'typescript', 'vue']
+---
+
+Most crypto tools on the web have the same problem. You paste a JWT into a decoder and the payload crosses the wire to someone's server. You type a password into a strength checker and that password ends up in an HTTP log somewhere. "HTTPS means it's safe" misses the point — the server is still the threat.
+
+[Germond Security](https://security.germondai.com) does not send anything anywhere. Every operation runs in your browser against `node:crypto`, polyfilled for the browser via WebCrypto. The only `localStorage` key written is the theme toggle. Refresh the page and all analyzer input is gone.
+
+It ships as three things sharing one codebase: a web SPA, a CLI (`gsec`), and a TypeScript library.
+
+## What it covers
+
+| Category | Tools |
+|----------|-------|
+| Generators | Passwords, passphrases (Diceware 2000+ words), secrets, API keys |
+| IDs | UUID v1–v5/v7, NanoID, ULID, KSUID, CUID |
+| Hashes | SHA-1/256/384/512, HMAC, scrypt, PBKDF2 |
+| Ciphers | AES-256-GCM, JWT HS256, RSA/Ed25519/ECDSA key pairs |
+| Encoders | base32, base58, base64, hex, octal, binary — bidirectional |
+| Analyzers | Password strength, entropy, crack-time estimates |
+
+Everything is hand-rolled — no external encoding libraries, no JWT package, no third-party ID generators.
+
+## One source, three outputs
+
+The monorepo has two apps (`web`, `cli`) and a core package (`@germondai/security`). The web app consumes the core via a Vite path alias that points directly at the TypeScript source, not a compiled output:
+
+```ts
+// apps/web/vite.config.ts
+"@germondai/security": fileURLToPath(
+  new URL("../../packages/security/src/index.ts", import.meta.url)
+)
+```
+
+No separate build step between the library and the web app. Turborepo handles dependency ordering for the CLI, but the web app imports straight from source. Change a function in `packages/security` and both outputs pick it up on the next save.
+
+## Rejection-sampling RNG
+
+The obvious approach to picking a random character from a charset is `charset[randomBytes(1)[0] % charset.length]`. It works, but it is subtly biased. When the charset length does not evenly divide 256, low-indexed characters appear slightly more often than high-indexed ones.
+
+```ts
+function uniformInt(n: number): number {
+  const limit = 256 - (256 % n)
+  let x: number
+  do { x = randomBytes(1)[0] } while (x >= limit)
+  return x % n
+}
+```
+
+Rejection sampling draws bytes until it gets one below the largest multiple of `n` that fits in the byte range, then takes the modulo. Every password character, every NanoID character, every passphrase word is picked this way.
+
+## Cross-environment crypto shim
+
+Running `node:crypto` in the browser via `vite-plugin-node-polyfills` hits a wall: `crypto-browserify`'s `createHash()` throws in modern Vite setups (`Cannot read properties of undefined (reading 'call')`). The shim detects `globalThis.crypto.subtle` and routes to native WebCrypto instead:
+
+```ts
+async function digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer> {
+  if (globalThis.crypto?.subtle) {
+    return globalThis.crypto.subtle.digest(algorithm, data)
+  }
+  const { createHash } = await import('node:crypto')
+  return createHash(algorithm.replace('-', '').toLowerCase())
+    .update(data)
+    .digest()
+    .buffer as ArrayBuffer
+}
+```
+
+Both paths return the same bytes. The browser gets native WebCrypto performance; Node and Bun get `node:crypto`. Dual sync and async variants exist for AES-GCM and key pair generation for the same reason — Ed25519 via WebCrypto is still spotty (Chrome 113+, Safari 17+, Firefox 130+), so the async variant catches exceptions and falls back.
+
+## Effective entropy in the password analyzer
+
+The strength analyzer separates two entropy numbers. Naive entropy is `log2(charsetPool) × length` — what brute-force math gives you assuming fully random, independent characters. Effective entropy deducts for detected patterns:
+
+- Common words: ~10 bits deducted per distinct dictionary match
+- Keyboard walks: `qwerty`, `12345`, `zxcvbn`
+- Repeated characters and substrings
+- Date patterns: four-digit years, MM/DD formats
+
+The word detection is CamelCase-aware. `MyDog'sNameIsRex` splits on case transitions and separators into `["My", "Dog", "s", "Name", "Is", "Rex"]` before scanning against the word list. Words shorter than 6 characters are ignored to avoid false positives from random character sequences that happen to contain short common words.
+
+The output maps to five crack-time scenarios:
+
+| Scenario | Guess rate |
+|----------|-----------|
+| Online (rate-limited) | 100/hour |
+| Offline slow hash (bcrypt) | 10K/sec |
+| Offline fast hash (MD5) | 10B/sec |
+| Distributed GPU cluster | 100B/sec |
+| Quantum (Grover's algorithm) | sqrt(keyspace)/sec |
+
+The same password that looks strong on naive entropy often drops two or three tiers on effective entropy. `MyDog'sNameIsRex!2024` has 82 naive bits but well under 40 effective bits once five dictionary matches and a year pattern are subtracted.
+
+## CLI
+
+Running `bunx gsec` with no arguments opens an interactive wizard covering all five categories. With arguments it skips the wizard:
+
+```bash
+bunx gsec gen password -l 24 --no-symbols
+bunx gsec gen id --type uuid-v7 -n 10
+bunx gsec hash sha256 "hello world"
+bunx gsec cipher aes-gcm encrypt --passphrase secret "message"
+bunx gsec analyze strength "MyDog'sNameIsRex!2024"
+```
+
+The `-r` flag on password generation enforces that at least one character from every selected class appears in the output. `-x` strips ambiguous characters (`0Oo1lI|`). Both are validated by the CI smoke test — the pipeline generates real passwords and checks the constraints with bash.
+
+## Shipping
+
+Three-stage Docker build: `turbo prune --docker` trims the monorepo to only the web app's transitive dependencies, a Bun builder installs and compiles, and nginx:alpine serves the static SPA. The runtime image has no Node or Bun.
+
+The code is at [github.com/germondai/security](https://github.com/germondai/security). The CLI works today; the web UI covers most categories. A few things still missing from the UI (argon2 support, better key pair management) are on the list.

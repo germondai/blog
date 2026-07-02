@@ -1,0 +1,115 @@
+---
+title: 'Budovanie kryptografického toolkitu s dôrazom na lokálne spracovanie'
+description: 'Generátory hesiel, dekodéry JWT, hash nástroje – všetky požadujú dôveru v server. Germond Security spúšťa všetko vo vašom prehliadači a dodáva rovnaký kód ako CLI a importovateľná knižnica.'
+publishDate: 2026-06-16
+tags: ['security', 'cryptography', 'open-source', 'typescript', 'vue']
+---
+
+Väčšina kryptografických nástrojov na webe má rovnaký problém. Vložíš JWT do dekodéra a payload putuje cez sieť na cudzí server. Zadáš heslo do kontroly sily hesla a to heslo skončí niekde v HTTP logu. „HTTPS znamená, že je to bezpečné" míňa podstatu – server je stále hrozba.
+
+[Germond Security](https://security.germondai.com) neodosiela nič nikam. Každá operácia beží v tvojom prehliadači cez `node:crypto`, polyfillované pre prehliadač cez WebCrypto. Jediný kľúč zapísaný do `localStorage` je prepínač témy. Obnovíš stránku a všetky vstupy analyzátora zmiznú.
+
+Dodáva sa ako tri veci zdieľajúce jeden zdrojový kód: webová SPA, CLI (`gsec`) a TypeScript knižnica.
+
+## Čo pokrýva
+
+| Kategória | Nástroje |
+|-----------|----------|
+| Generátory | Heslá, prístupové frázy (Diceware 2000+ slov), tajné kľúče, API kľúče |
+| IDs | UUID v1–v5/v7, NanoID, ULID, KSUID, CUID |
+| Hashe | SHA-1/256/384/512, HMAC, scrypt, PBKDF2 |
+| Šifry | AES-256-GCM, JWT HS256, RSA/Ed25519/ECDSA kľúčové páry |
+| Enkodéry | base32, base58, base64, hex, oktal, binárna – obojsmerne |
+| Analyzátory | Sila hesla, entropia, odhady času prelomenia |
+
+Všetko je napísané od základov – žiadne externé knižnice pre enkodovanie, žiadny JWT balíček, žiadne externé generátory ID.
+
+## Jeden zdrojový kód, tri výstupy
+
+Monorepo má dve aplikácie (`web`, `cli`) a jadrovú knižnicu (`@germondai/security`). Webová aplikácia konzumuje jadro cez Vite path alias, ktorý smeruje priamo na TypeScript zdrojový kód, nie na skompilovaný výstup:
+
+```ts
+// apps/web/vite.config.ts
+"@germondai/security": fileURLToPath(
+  new URL("../../packages/security/src/index.ts", import.meta.url)
+)
+```
+
+Žiadny samostatný krok buildu medzi knižnicou a webovou aplikáciou. Turborepo riadi poradie závislostí pre CLI, ale webová aplikácia importuje priamo zo zdroja. Zmeníš funkciu v `packages/security` a oba výstupy to zachytia pri najbližšom uložení.
+
+## RNG s odmietaním vzoriek
+
+Zjavný prístup k výberu náhodného znaku zo sady je `charset[randomBytes(1)[0] % charset.length]`. Funguje to, ale je to jemne skreslené. Keď dĺžka sady znakov nedelí 256 bezo zvyšku, znaky s nízkym indexom sa objavujú o niečo častejšie ako znaky s vysokým indexom.
+
+```ts
+function uniformInt(n: number): number {
+  const limit = 256 - (256 % n)
+  let x: number
+  do { x = randomBytes(1)[0] } while (x >= limit)
+  return x % n
+}
+```
+
+Odmietavé vzorkovanie ťahá bajty, kým nezíska jeden pod najväčším násobkom `n`, ktorý sa zmestí do rozsahu bajtu, a potom vezme modulo. Takto sa vyberá každý znak hesla, každý znak NanoID, každé slovo prístupovej frázy.
+
+## Cross-environment crypto shim
+
+Spustenie `node:crypto` v prehliadači cez `vite-plugin-node-polyfills` naráža na problém: `createHash()` z `crypto-browserify` padá v moderných Vite konfiguráciách (`Cannot read properties of undefined (reading 'call')`). Shim detekuje `globalThis.crypto.subtle` a namiesto toho smeruje na natívne WebCrypto:
+
+```ts
+async function digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer> {
+  if (globalThis.crypto?.subtle) {
+    return globalThis.crypto.subtle.digest(algorithm, data)
+  }
+  const { createHash } = await import('node:crypto')
+  return createHash(algorithm.replace('-', '').toLowerCase())
+    .update(data)
+    .digest()
+    .buffer as ArrayBuffer
+}
+```
+
+Obe cesty vrátia rovnaké bajty. Prehliadač získa natívny výkon WebCrypto; Node a Bun dostanú `node:crypto`. Duálne synchrónne a asynchrónne varianty existujú pre AES-GCM a generovanie kľúčových párov z rovnakého dôvodu – Ed25519 cez WebCrypto je stále nestabilné (Chrome 113+, Safari 17+, Firefox 130+), takže asynchrónny variant zachytáva výnimky a padá späť na záložnú možnosť.
+
+## Efektívna entropia v analyzátore hesiel
+
+Analyzátor sily oddeľuje dve čísla entropie. Naivná entropia je `log2(charsetPool) × length` – to, čo ti dáva matematika hrubej sily za predpokladu plne náhodných, nezávislých znakov. Efektívna entropia odpočítava za odhalené vzory:
+
+- Bežné slová: ~10 bitov odpočítaných za každú nájdenú zhodu v slovníku
+- Klávesnicové sekvencie: `qwerty`, `12345`, `zxcvbn`
+- Opakujúce sa znaky a podreťazce
+- Vzory dátumov: štvorciferné roky, formáty MM/DD
+
+Detekcia slov berie do úvahy CamelCase. `MyDog'sNameIsRex` sa rozdelí na základe prechodov veľkých a malých písmen a oddeľovačov na `["My", "Dog", "s", "Name", "Is", "Rex"]` pred porovnaním so zoznamom slov. Slová kratšie ako 6 znakov sa ignorujú, aby sa predišlo falošným poplachom z náhodných sekvencií znakov, ktoré náhodou obsahujú krátke bežné slová.
+
+Výstup mapuje na päť scenárov doby prelomenia:
+
+| Scenár | Rýchlosť pokusov |
+|--------|-----------------|
+| Online (obmedzená sadzba) | 100/hod |
+| Offline pomalý hash (bcrypt) | 10 tis./s |
+| Offline rýchly hash (MD5) | 10 mld./s |
+| Distribuovaný GPU cluster | 100 mld./s |
+| Kvantový počítač (Groverov algoritmus) | sqrt(keyspace)/s |
+
+Rovnaké heslo, ktoré vyzerá silné na základe naivnej entropie, často klesne o dve alebo tri úrovne pri efektívnej entropii. `MyDog'sNameIsRex!2024` má 82 naivných bitov, ale oveľa menej ako 40 efektívnych bitov, keď sa odpočíta päť zhôd v slovníku a vzor roku.
+
+## CLI
+
+Spustenie `bunx gsec` bez argumentov otvorí interaktívneho sprievodcu pokrývajúceho všetkých päť kategórií. S argumentmi preskočí sprievodcu:
+
+```bash
+bunx gsec gen password -l 24 --no-symbols
+bunx gsec gen id --type uuid-v7 -n 10
+bunx gsec hash sha256 "hello world"
+bunx gsec cipher aes-gcm encrypt --passphrase secret "message"
+bunx gsec analyze strength "MyDog'sNameIsRex!2024"
+```
+
+Príznak `-r` pri generovaní hesiel zabezpečuje, že aspoň jeden znak z každej vybranej triedy sa objaví vo výstupe. `-x` odstraňuje nejednoznačné znaky (`0Oo1lI|`). Obe možnosti sú overované CI smoke testom – pipeline generuje skutočné heslá a kontroluje obmedzenia cez bash.
+
+## Nasadenie
+
+Trojstupňový Docker build: `turbo prune --docker` orezá monorepo len na tranzitívne závislosti webovej aplikácie, Bun builder nainštaluje a skompiluje a nginx:alpine obsluhuje statickú SPA. Runtime image neobsahuje Node ani Bun.
+
+Zdrojový kód je na [github.com/germondai/security](https://github.com/germondai/security). CLI dnes funguje; webové rozhranie pokrýva väčšinu kategórií. Niekoľko vecí stále chýba v UI (podpora argon2, lepšia správa kľúčových párov) je na zozname.

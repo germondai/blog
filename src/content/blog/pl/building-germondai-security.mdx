@@ -1,0 +1,115 @@
+---
+title: 'Budowanie lokalnego zestawu narzędzi kryptograficznych'
+description: 'Generatory haseł, dekodery JWT, narzędzia do hashowania — wszystkie wymagają zaufania serwerowi. Germond Security uruchamia wszystko w przeglądarce i dostarcza ten sam kod jako CLI i bibliotekę.'
+publishDate: 2026-06-16
+tags: ['security', 'cryptography', 'open-source', 'typescript', 'vue']
+---
+
+Większość narzędzi kryptograficznych w sieci ma ten sam problem. Wklejasz JWT do dekodera i payload trafia na czyjś serwer. Wpisujesz hasło do sprawdzarki siły i to hasło ląduje gdzieś w logu HTTP. "HTTPS znaczy, że jest bezpiecznie" mija się z celem — serwer nadal jest zagrożeniem.
+
+[Germond Security](https://security.germondai.com) nie wysyła niczego nigdzie. Każda operacja działa w przeglądarce na `node:crypto`, z polyfill dla przeglądarki przez WebCrypto. Jedynym kluczem zapisywanym do `localStorage` jest przełącznik motywu. Odśwież stronę, a wszystkie dane wejściowe analizatora znikają.
+
+Dostarcza trzy rzeczy korzystające z jednej bazy kodu: webową SPA, CLI (`gsec`) i bibliotekę TypeScript.
+
+## Co obejmuje
+
+| Kategoria | Narzędzia |
+|-----------|-----------|
+| Generatory | Hasła, passphrase (Diceware, 2000+ słów), sekrety, klucze API |
+| ID | UUID v1–v5/v7, NanoID, ULID, KSUID, CUID |
+| Hashe | SHA-1/256/384/512, HMAC, scrypt, PBKDF2 |
+| Szyfry | AES-256-GCM, JWT HS256, pary kluczy RSA/Ed25519/ECDSA |
+| Enkodery | base32, base58, base64, hex, octal, binary — dwukierunkowe |
+| Analizatory | Siła hasła, entropia, szacowany czas łamania |
+
+Wszystko napisane od zera — żadnych zewnętrznych bibliotek do enkodowania, żadnego pakietu JWT, żadnych zewnętrznych generatorów ID.
+
+## Jedno źródło, trzy wyjścia
+
+Monorepo ma dwie aplikacje (`web`, `cli`) i pakiet rdzennych funkcji (`@germondai/security`). Aplikacja webowa korzysta z rdzenia przez alias ścieżki Vite wskazujący bezpośrednio na źródło TypeScript, nie na skompilowany output:
+
+```ts
+// apps/web/vite.config.ts
+"@germondai/security": fileURLToPath(
+  new URL("../../packages/security/src/index.ts", import.meta.url)
+)
+```
+
+Żadnego osobnego kroku budowania między biblioteką a aplikacją webową. Turborepo obsługuje kolejność zależności dla CLI, ale aplikacja webowa importuje prosto ze źródła. Zmień funkcję w `packages/security`, a oba wyjścia pobiorą ją przy następnym zapisie.
+
+## RNG z próbkowaniem odrzucającym
+
+Oczywiste podejście do wybierania losowego znaku z zestawu znaków to `charset[randomBytes(1)[0] % charset.length]`. Działa, ale jest subtelnie stronnicze. Gdy długość zestawu znaków nie dzieli równomiernie 256, znaki o niskim indeksie pojawiają się nieco częściej niż te o wysokim.
+
+```ts
+function uniformInt(n: number): number {
+  const limit = 256 - (256 % n)
+  let x: number
+  do { x = randomBytes(1)[0] } while (x >= limit)
+  return x % n
+}
+```
+
+Próbkowanie odrzucające losuje bajty, dopóki nie trafi na taki poniżej największej wielokrotności `n` mieszczącej się w zakresie bajtu, a następnie bierze modulo. Każdy znak hasła, każdy znak NanoID, każde słowo passphrase jest wybierane w ten sposób.
+
+## Shim kryptograficzny dla różnych środowisk
+
+Uruchomienie `node:crypto` w przeglądarce przez `vite-plugin-node-polyfills` napotyka na przeszkodę: `createHash()` z `crypto-browserify` rzuca wyjątek w nowoczesnych konfiguracjach Vite (`Cannot read properties of undefined (reading 'call')`). Shim wykrywa `globalThis.crypto.subtle` i zamiast tego kieruje do natywnego WebCrypto:
+
+```ts
+async function digest(algorithm: string, data: Uint8Array): Promise<ArrayBuffer> {
+  if (globalThis.crypto?.subtle) {
+    return globalThis.crypto.subtle.digest(algorithm, data)
+  }
+  const { createHash } = await import('node:crypto')
+  return createHash(algorithm.replace('-', '').toLowerCase())
+    .update(data)
+    .digest()
+    .buffer as ArrayBuffer
+}
+```
+
+Obie ścieżki zwracają te same bajty. Przeglądarka otrzymuje natywną wydajność WebCrypto; Node i Bun dostają `node:crypto`. Podwójne warianty synchroniczne i asynchroniczne istnieją dla AES-GCM i generowania par kluczy z tego samego powodu — Ed25519 przez WebCrypto jest nadal niestabilny (Chrome 113+, Safari 17+, Firefox 130+), więc wariant asynchroniczny łapie wyjątki i stosuje fallback.
+
+## Efektywna entropia w analizatorze haseł
+
+Analizator siły rozdziela dwie liczby entropii. Naiwna entropia to `log2(charsetPool) × length` — to, co daje matematyka brute-force zakładając w pełni losowe, niezależne znaki. Efektywna entropia odejmuje za wykryte wzorce:
+
+- Popularne słowa: ~10 bitów odjętych za każde unikalne trafienie słownikowe
+- Sekwencje klawiaturowe: `qwerty`, `12345`, `zxcvbn`
+- Powtórzone znaki i podciągi
+- Wzorce dat: czterocyfrowe lata, formaty MM/DD
+
+Wykrywanie słów uwzględnia CamelCase. `MyDog'sNameIsRex` jest dzielone na granicach wielkości liter i separatorach na `["My", "Dog", "s", "Name", "Is", "Rex"]` przed skanowaniem pod kątem listy słów. Słowa krótsze niż 6 znaków są ignorowane, aby uniknąć fałszywych trafień ze losowych ciągów znaków, które zawierają krótkie popularne słowa.
+
+Wynik mapuje się na pięć scenariuszy czasu łamania:
+
+| Scenariusz | Szybkość zgadywania |
+|------------|-------------------|
+| Online (z rate limiting) | 100/godz. |
+| Offline wolny hash (bcrypt) | 10K/sek. |
+| Offline szybki hash (MD5) | 10B/sek. |
+| Rozproszony klaster GPU | 100B/sek. |
+| Kwantowy (algorytm Grovera) | sqrt(keyspace)/sek. |
+
+To samo hasło, które wygląda silnie pod względem naiwnej entropii, często spada o dwa lub trzy poziomy w entropii efektywnej. `MyDog'sNameIsRex!2024` ma 82 naiwne bity, ale dobrze poniżej 40 efektywnych bitów po odjęciu pięciu trafień słownikowych i wzorca roku.
+
+## CLI
+
+Uruchomienie `bunx gsec` bez argumentów otwiera interaktywny wizard obejmujący wszystkie pięć kategorii. Z argumentami pomija wizard:
+
+```bash
+bunx gsec gen password -l 24 --no-symbols
+bunx gsec gen id --type uuid-v7 -n 10
+bunx gsec hash sha256 "hello world"
+bunx gsec cipher aes-gcm encrypt --passphrase secret "message"
+bunx gsec analyze strength "MyDog'sNameIsRex!2024"
+```
+
+Flaga `-r` przy generowaniu hasła wymusza, że przynajmniej jeden znak z każdej wybranej klasy pojawia się w wyjściu. `-x` usuwa niejednoznaczne znaki (`0Oo1lI|`). Obie są weryfikowane przez smoke test CI — pipeline generuje prawdziwe hasła i sprawdza ograniczenia przez bash.
+
+## Wdrożenie
+
+Trzystopniowy build Docker: `turbo prune --docker` przycina monorepo do tylko zależności transytywnych aplikacji webowej, builder Bun instaluje i kompiluje, a nginx:alpine serwuje statyczną SPA. Obraz runtime nie ma Node ani Bun.
+
+Kod jest na [github.com/germondai/security](https://github.com/germondai/security). CLI działa dziś; web UI pokrywa większość kategorii. Kilka rzeczy wciąż brakuje w UI (wsparcie argon2, lepsze zarządzanie parami kluczy) — są na liście.
