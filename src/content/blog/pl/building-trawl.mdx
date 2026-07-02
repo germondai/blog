@@ -1,0 +1,140 @@
+---
+title: 'Zastąpiłem FlareSolverr w homelabie i upubliczniłem kod'
+description: 'FlareSolverr był wolny, ciągle się psuł i nie potrafił rozwiązać żadnej captchy. TRAWL to drop-in replacement zbudowany na Camoufox Firefox z 4-poziomowym modelem wykonania i prawdziwymi solverami captcha.'
+publishDate: 2026-06-28
+tags: ['homelab', 'web-scraping', 'open-source', 'docker', 'bun']
+---
+
+Prowadzę standardowy stos \*arr — Sonarr, Radarr, Prowlarr. Wiele indekserów chroni się przez Cloudflare, więc FlareSolverr był stałym elementem mojego Docker Compose. W zasadzie działał, ale czasy rozwiązywania 11-18 sekund były powolne, psuł się przy każdej aktualizacji Cloudflare i nie radził sobie z żadną captchą wewnątrz strony. Jeśli strona wrzuciła widget Turnstile po bramce CF, FlareSolverr się zaciął i nie zwracał nic użytecznego.
+
+[TRAWL](https://github.com/germondai/trawl) go zastępuje. Drop-in replacement: zmień jeden URL w Prowlarr, nic więcej.
+
+## Architektura 4-poziomowa
+
+Każde żądanie przechodzi kaskadowo przez cztery poziomy wykonania w kolejności, zatrzymując się gdy jeden z nich się powiedzie:
+
+```
+Żądanie
+   │
+   ▼
+Poziom 1: Zwykłe HTTP fetch         < 100ms  ──► zwróć jeśli czysty
+   │ (wykryto CF/Imperva)
+   ▼
+Poziom 2: Wstrzyknij sesję z cache  ~500ms   ──► zwróć jeśli ważna
+   │ (sesja wygasła/nieważna)
+   ▼
+Poziom 3: Świeże rozwiązanie przez przeglądarkę  4–15s  ──► zwróć + zapisz do Redis
+   │ (IP zablokowane)
+   ▼
+Poziom 4: Rozwiązanie przez proxy residential  15–45s  ──► zwróć + zapisz do Redis
+```
+
+| Poziom | Co się dzieje | Typowy czas |
+|--------|--------------|-------------|
+| 1 | Bun `fetch()` z prawdziwymi nagłówkami przeglądarki | < 100ms |
+| 2 | Wstrzyknięcie `cf_clearance` z cache do kontekstu przeglądarki | ~500ms |
+| 3 | Świeże rozwiązanie Camoufox, zapisanie cookies do Redis | 4–15s |
+| 4 | To samo, ale przez proxy residential | 15–45s |
+
+Większość żądań trafia na Poziom 1 (brak ochrony) lub Poziom 2 (powtórna domena, sesja z cache). Pełny koszt rozwiązania przez przeglądarkę płacisz tylko za pierwszą wizytę na danej domenie lub gdy sesja z cache wygaśnie.
+
+## Dlaczego Camoufox, a nie Puppeteer
+
+Wtyczki stealth dla Puppeteer i Playwright działają przez wstrzykiwanie JavaScriptu, aby nadpisać takie rzeczy jak `navigator.webdriver` i `window.chrome`. Problem polega na tym, że kod challenge Cloudflare działa w tym samym silniku przeglądarki — może wykryć, że te właściwości zostały nadpisane po fakcie, bo łatanie JS zostawia widoczne luki.
+
+[Camoufox](https://camoufox.com) to fork Firefoksa, który łata dane odcisku palca na poziomie binarnym, w kodzie C++ i protokole Juggler przeglądarki. Nie ma nic do wykrycia przez challenge. Przeglądarka prezentuje się jako prawdziwa instancja Firefox na Windows ze spójnym rendererem WebGL, odciskiem canvas, listą wtyczek i profilem sprzętowym.
+
+W rezultacie CF uruchamia szybką ścieżkę ewaluacji. Rozwiązanie challenge zajmuje 3-4 sekundy zamiast 40.
+
+TRAWL uruchamia Camoufox z kilkoma ważnymi flagami:
+- `geoip: true` — strefa czasowa, lokalizacja i API geolokalizacji przeglądarki raportują rzeczywistą lokalizację serwera, zachowując spójność odcisku palca
+- `block_webrtc: true` — zapobiega wyciekowi prawdziwego IP serwera przez WebRTC przy pracy za proxy
+- `main_world_eval: true` — potrzebne do wykonywania JavaScriptu w głównym zakresie world, co jest wymagane do dostania się do zamkniętego shadow DOM Turnstile
+
+Świeży kontekst ma też większe znaczenie, niż można by oczekiwać. Wielokrotnie używany kontekst przeglądarki gromadzi localStorage, service workery i stan silnika JS, który system scoringowy CF oznacza jako podejrzany — czas rozwiązania challenge w ciepłym kontekście może sięgnąć 40s. Świeży kontekst bez żadnego wcześniejszego stanu otrzymuje szybkie traktowanie: challenge czyści się w 3-4s.
+
+## Cache sesji w Redis
+
+Po udanym rozwiązaniu na Poziomie 3 lub 4, cookie `cf_clearance` i dane sesji są zapisywane do Redis:
+
+```
+session:{domain}  →  { cookies, userAgent, savedAt }  (TTL: domyślnie 1h)
+```
+
+Poziom 2 ładuje ten wpis, wstrzykuje cookies do świeżego kontekstu przeglądarki i nawiguje do URL. Jeśli CF nie wyzwala ponownie challenge, cały proces kończy się w ~500ms — czas ładowania strony w przeglądarce, nie rozwiązywania challenge.
+
+Jeśli sesja jest przestarzała lub CF znowu challenguje, wpis zostaje unieważniony i żądanie spada do Poziomu 3. Aktywne domeny zachowują sesję w nieskończoność, bo udane trafienie na Poziomie 2 resetuje TTL.
+
+Redis jest opcjonalny. Bez niego Poziom 2 jest całkowicie pomijany i wszystkie żądania przechodzą do Poziomu 3.
+
+## Rozwiązywanie captcha
+
+CF i Imperva to bramki botów, nie captchy. Po przejściu bramki, niektóre strony wrzucają jeszcze widgety captcha wewnątrz strony. TRAWL obsługuje cztery:
+
+**Cloudflare Turnstile** — Z Camoufox i czystym IP Turnstile często przechodzi po cichu (ocenia sygnały behawioralne i pomija widoczny checkbox). Gdy potrzebne jest kliknięcie, TRAWL próbuje czterech strategii w kolejności: przechodzenie przez shadow DOM przez zamonkeypatchwany `attachShadow` ujawniający zamknięte shadow rooty, następnie selektory dostępności wewnątrz iframe, następnie kliknięcie w współrzędnych bounding-box obliczone z nadrzędnej strony, następnie klawiatura Tab + Spacja.
+
+**reCAPTCHA v2** — Odcisk palca często daje cichy przejazd. Jeśli pojawi się challenge z siatką obrazów, TRAWL przełącza się na tryb audio: pobiera MP3 z dźwiękiem, konwertuje do FLAC przy 8kHz przez ffmpeg i wysyła POST do publicznego API Google Speech-to-Text. Własny model STT Google przeznaczony dla dostępności transkrybuje challenge audio Google prawidłowo przez większość czasu. Używany klucz API to ten sam, którego open-source'owe rozszerzenie [Buster](https://github.com/dessant/buster) używa od 2013 roku. Ponawia próby do 3 razy z nowymi challengami audio.
+
+**hCaptcha** — Kliknięcie checkboxa, oczekiwanie 3 sekundy na `aria-checked="true"`. Z prawdziwym odciskiem palca Firefox na IP innym niż datacenter, hCaptcha często automatycznie przechodzi bez pojawiania się siatki obrazów.
+
+**GeeTest v4** — Robi screenshot challenge, konwertuje do surowych bajtów RGB przez ffmpeg, znajduje przerwę suwaka skanując kolumny pod kątem minimalnej jasności (cień) i maksymalnego wyniku krawędzi (granica wycięcia), następnie przeciąga z krzywą beziera o 35 krokach plus losowy jitter na każdym kroku. Ponawia próby z korektami przesunięcia, jeśli pierwsza próba chybi.
+
+## Kompatybilność z API FlareSolverr v2
+
+Endpoint `/v1` przyjmuje i zwraca dokładnie kontrakt FlareSolverr v2:
+
+```json
+{ "cmd": "request.get", "url": "https://example.com", "maxTimeout": 60000 }
+```
+
+```json
+{
+  "status": "ok",
+  "solution": { "url": "...", "response": "...", "cookies": [], "userAgent": "..." },
+  "version": "2.0.0"
+}
+```
+
+W Prowlarr, Jackett lub innym kliencie FlareSolverr:
+
+```bash
+# Przed
+http://flaresolverr:8191
+
+# Po
+http://trawl:8191
+```
+
+TRAWL udostępnia też natywny endpoint `/scrape` zwracający dodatkowy kontekst: który poziom został użyty, czy sesja była z cache, czasy na każdym poziomie i które captchy zostały rozwiązane.
+
+## Uruchomienie
+
+```yaml
+services:
+  trawl:
+    image: ghcr.io/germondai/trawl:latest
+    ports:
+      - "8191:8191"
+    environment:
+      REDIS_URL: redis://redis:6379
+      BROWSER_POOL_SIZE: 3
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+```
+
+Kluczowe zmienne środowiskowe:
+
+| Zmienna | Domyślna | Opis |
+|---------|----------|------|
+| `REDIS_URL` | — | Opcjonalna. Włącza cache sesji na Poziomie 2 |
+| `BROWSER_POOL_SIZE` | `3` | Równoległe instancje przeglądarki |
+| `DATACENTER_PROXY_URL` | — | Opcjonalny. Proxy dla prób na Poziomie 3 |
+| `RESIDENTIAL_PROXY_URL` | — | Opcjonalny. Włącza Poziom 4 |
+| `SESSION_TTL_SECONDS` | `3600` | Jak długo cachować sesje CF w Redis |
+
+Dwa tagi obrazu: `:latest` wymaga kernela 5.1+ i AVX2. `:baseline` działa na starszym sprzęcie — testowany na Synology DS920+ (Celeron J4125, kernel 4.4, DSM 7.3.2).
+
+Kod jest na [github.com/germondai/trawl](https://github.com/germondai/trawl). Działa na moim homelabie od kiedy go zbudowałem bez żadnych awarii przy aktualizacjach CF — a to był główny problem, na którym FlareSolverr ciągle się wywalał.

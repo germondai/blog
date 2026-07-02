@@ -1,0 +1,140 @@
+---
+title: 'Nahradil som FlareSolverr vo svojom homelab a potom som ho open-sourcoval'
+description: 'FlareSolverr bol pomalý, neustále sa kazil a nedokázal vyriešiť ani jednu captchu. TRAWL je drop-in náhrada postavená na Camoufox Firefox so 4-úrovňovým modelom vykonávania a skutočnými riešičmi captcha.'
+publishDate: 2026-06-28
+tags: ['homelab', 'web-scraping', 'open-source', 'docker', 'bun']
+---
+
+Používam štandardný \*arr stack – Sonarr, Radarr, Prowlarr. Mnoho indexerov sa chráni pomocou Cloudflare, takže FlareSolverr bol stálou súčasťou môjho Docker Compose. Väčšinou to fungovalo, ale doby riešenia 11–18 sekúnd boli pomalé, rozpadávalo sa to pri každej aktualizácii Cloudflare a nedokázalo spracovať žiadnu captchu priamo na stránke. Ak stránka pridala Turnstile widget po CF bráne, FlareSolverr sa zasekol a nevrátil nič použiteľné.
+
+[TRAWL](https://github.com/germondai/trawl) ho nahrádza. Drop-in náhrada: zmeníš jednu URL v Prowlarr, nič iné.
+
+## Architektúra 4 úrovní
+
+Každá požiadavka prechádza cez štyri úrovne vykonávania v poradí, pričom sa zastaví hneď, ako jedna uspeje:
+
+```
+Požiadavka
+   │
+   ▼
+Úroveň 1: Priame HTTP načítanie    < 100ms  ──► vrátiť ak čisté
+   │ (zistené CF/Imperva)
+   ▼
+Úroveň 2: Injekcia cachovane       ~500ms   ──► vrátiť ak platné
+   │ (relácia expirovala/neplatná)
+   ▼
+Úroveň 3: Riešenie v prehliadači   4–15s    ──► vrátiť + uložiť do Redis
+   │ (IP je blokovaná)
+   ▼
+Úroveň 4: Riešenie cez proxy       15–45s   ──► vrátiť + uložiť do Redis
+```
+
+| Úroveň | Čo sa deje | Typický čas |
+|--------|-----------|------------|
+| 1 | Bun `fetch()` s reálnymi hlavičkami prehliadača | < 100ms |
+| 2 | Injekcia cachovane `cf_clearance` do kontextu prehliadača | ~500ms |
+| 3 | Čerstvé riešenie cez Camoufox, uloženie cookies do Redis | 4–15s |
+| 4 | Rovnaké, ale cez rezidenčné proxy | 15–45s |
+
+Väčšina požiadaviek zasiahne Úroveň 1 (bez ochrany) alebo Úroveň 2 (opakovaná doména, cachovaná relácia). Plné náklady na riešenie cez prehliadač platíš len prvýkrát pre každú doménu, alebo keď cachovaná relácia expiruje.
+
+## Prečo Camoufox a nie Puppeteer
+
+Stealth pluginy pre Puppeteer a Playwright fungujú injekciou JavaScriptu na prepisovanie vecí ako `navigator.webdriver` a `window.chrome`. Problém je, že Cloudflare challenge kód beží v rovnakom prehliadačovom engine – môže zistiť, že tieto vlastnosti boli prepísané dodatočne, pretože JS patching zanecháva viditeľné medzery.
+
+[Camoufox](https://camoufox.com) je fork Firefoxu, ktorý opravuje fingerprint dáta na binárnej úrovni, v C++ a Juggler protokolovom kóde prehliadača. Challenge nemá čo detekovať. Prehliadač sa prezentuje ako skutočná inštancia Windows Firefox s konzistentným WebGL rendererom, canvas fingerprintom, zoznamom pluginov a hardvérovým profilom.
+
+Výsledok je, že CF spustí svoju rýchlu cestu hodnotenia. Vyriešenie challenge trvá 3–4 sekundy namiesto 40.
+
+TRAWL spúšťa Camoufox s niekoľkými dôležitými príznakmi:
+- `geoip: true` – časové pásmo, jazyk a geolokačné API prehliadača hlásia skutočnú polohu servera, čím sa zachováva interná konzistentnosť fingerprintu
+- `block_webrtc: true` – zabraňuje WebRTC v úniku skutočnej IP servera pri bežaní za proxy
+- `main_world_eval: true` – potrebné na vykonávanie JavaScriptu v hlavnom rozsahu, čo je nevyhnutné na prístup do uzavretého shadow DOM Turnstile
+
+Čerstvý kontext je tiež dôležitejší, ako by sa zdalo. Opakovaný kontext prehliadača hromadí localStorage, service workers a stav JS enginu, ktoré CF behaviorálne hodnotenie označí ako podozrivé – čas riešenia challenge na teplom kontexte môže dosiahnuť 40s. Čerstvý kontext bez predchádzajúceho stavu dostane rýchlu cestu: challenge sa vyrieši za celkovo 3–4s.
+
+## Redis session cache
+
+Po úspešnom riešení cez Úroveň 3 alebo 4 sa cookie `cf_clearance` a dáta relácie uložia do Redis:
+
+```
+session:{domain}  →  { cookies, userAgent, savedAt }  (TTL: 1h predvolene)
+```
+
+Úroveň 2 načíta tento záznam, injektuje cookies do čerstvého kontextu prehliadača a naviguje na URL. Ak CF znova neskúša challenge, celá vec sa dokončí za ~500ms – čas načítania stránky prehliadača, nie vyriešenia challenge.
+
+Ak je relácia zastaraná alebo CF znova skúša challenge, záznam sa invaliduje a požiadavka klesne na Úroveň 3. Aktívne domény udržiavajú svoju reláciu aktívnu donekonečna, pretože úspešný zásah Úrovne 2 resetuje TTL.
+
+Redis je voliteľný. Bez neho sa Úroveň 2 úplne preskočí a všetky požiadavky padnú na Úroveň 3.
+
+## Riešenie captcha
+
+CF a Imperva sú bot brány, nie captchy. Po prechode bránou niektoré stránky tiež pridávajú captcha widgety priamo na stránku. TRAWL zvláda štyri:
+
+**Cloudflare Turnstile** – S Camoufox a čistou IP Turnstile často prechádza ticho (hodnotí behaviorálne signály a preskočí viditeľné zaškrtávacie políčko). Keď je potrebný klik, TRAWL skúša štyri stratégie v poradí: traversal shadow DOM cez monkeypatched `attachShadow`, ktorý odhaľuje uzavreté shadow roots, potom accessibility selektory vo vnútri iframe, potom klik cez bounding-box súradnice vypočítané z nadradenej stránky, potom klávesy Tab + Space.
+
+**reCAPTCHA v2** – Fingerprint často získa tiché schválenie. Ak sa objaví výzva s mriežkou obrázkov, TRAWL prepne na audio režim: stiahne audio MP3, konvertuje ho na FLAC pri 8kHz cez ffmpeg a odošle na verejné Google Speech-to-Text API. Google vlastný accessibility STT model správne prepíše Google vlastnú audio výzvu väčšinu času. Použitý API kľúč je rovnaký, aký open-source rozšírenie [Buster](https://github.com/dessant/buster) používa od roku 2013. Opakuje až 3-krát s novými audio výzvami.
+
+**hCaptcha** – Klikni na zaškrtávacie políčko, počkaj 3 sekundy na `aria-checked="true"`. S reálnym Firefox fingerprintom na ne-datacentrovej IP hCaptcha často automaticky schváli bez toho, aby sa objavila mriežka obrázkov.
+
+**GeeTest v4** – Odfotí výzvu, konvertuje na surové RGB bajty cez ffmpeg, nájde medzeru posuvníka skenovaním stĺpcov na minimálny jas (tieň) a maximálne skóre hrán (hranica zárezu), potom ťahá s 35-krokovou beziérovou krivkou plus náhodným rozptylom na každom kroku. Opakuje pri úpravách posunu, ak prvý pokus minie.
+
+## Kompatibilita s FlareSolverr v2 API
+
+Endpoint `/v1` akceptuje a vracia presne rovnaký kontrakt FlareSolverr v2:
+
+```json
+{ "cmd": "request.get", "url": "https://example.com", "maxTimeout": 60000 }
+```
+
+```json
+{
+  "status": "ok",
+  "solution": { "url": "...", "response": "...", "cookies": [], "userAgent": "..." },
+  "version": "2.0.0"
+}
+```
+
+V Prowlarr, Jackett alebo akomkoľvek inom FlareSolverr klientovi:
+
+```bash
+# Pred
+http://flaresolverr:8191
+
+# Po
+http://trawl:8191
+```
+
+TRAWL tiež poskytuje natívny endpoint `/scrape`, ktorý vracia dodatočný kontext: ktorá úroveň bola použitá, či bola relácia cachovaná, časové pečiatky jednotlivých úrovní a ktoré captchy boli vyriešené.
+
+## Spustenie
+
+```yaml
+services:
+  trawl:
+    image: ghcr.io/germondai/trawl:latest
+    ports:
+      - "8191:8191"
+    environment:
+      REDIS_URL: redis://redis:6379
+      BROWSER_POOL_SIZE: 3
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+```
+
+Kľúčové premenné prostredia:
+
+| Premenná | Predvolená | Poznámky |
+|----------|-----------|---------|
+| `REDIS_URL` | — | Voliteľná. Aktivuje cache relácií na Úrovni 2 |
+| `BROWSER_POOL_SIZE` | `3` | Súbežné inštancie prehliadača |
+| `DATACENTER_PROXY_URL` | — | Voliteľná. Proxy pre pokusy na Úrovni 3 |
+| `RESIDENTIAL_PROXY_URL` | — | Voliteľná. Aktivuje Úroveň 4 |
+| `SESSION_TTL_SECONDS` | `3600` | Ako dlho cachovať CF relácie v Redis |
+
+Dve image tagy: `:latest` vyžaduje kernel 5.1+ a AVX2. `:baseline` je určený pre starší hardvér – testovaný na Synology DS920+ (Celeron J4125, kernel 4.4, DSM 7.3.2).
+
+Zdrojový kód je na [github.com/germondai/trawl](https://github.com/germondai/trawl). Beží na mojom homelab od chvíle, čo som ho postavil, bez akéhokoľvek rozpadnutia sa pri aktualizáciách CF – čo bol hlavný problém, s ktorým FlareSolverr neustále zlyhal.

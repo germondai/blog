@@ -1,0 +1,140 @@
+---
+title: 'I Replaced FlareSolverr in My Homelab and Then Open-Sourced It'
+description: 'FlareSolverr was slow, broke constantly, and could not solve a single captcha. TRAWL is a drop-in replacement built on Camoufox Firefox with a 4-tier execution model and real captcha solvers.'
+publishDate: 2026-06-28
+tags: ['homelab', 'web-scraping', 'open-source', 'docker', 'bun']
+---
+
+I run a standard \*arr stack — Sonarr, Radarr, Prowlarr. A lot of indexers protect themselves with Cloudflare, so FlareSolverr was a fixture in my Docker Compose. It mostly worked, but 11-18 second solve times were slow, it broke on every Cloudflare update, and it could not handle any in-page captcha. If a site dropped a Turnstile widget after the CF gate, FlareSolverr got stuck and returned nothing useful.
+
+[TRAWL](https://github.com/germondai/trawl) replaces it. Drop-in replacement: change one URL in Prowlarr, nothing else.
+
+## The 4-tier architecture
+
+Every request cascades through four execution tiers in order, stopping as soon as one succeeds:
+
+```
+Request
+   │
+   ▼
+Tier 1: Plain HTTP fetch           < 100ms  ──► return if clean
+   │ (CF/Imperva detected)
+   ▼
+Tier 2: Inject cached CF session   ~500ms   ──► return if valid
+   │ (session expired/invalid)
+   ▼
+Tier 3: Fresh browser solve        4–15s    ──► return + cache to Redis
+   │ (IP flagged)
+   ▼
+Tier 4: Residential proxy solve    15–45s   ──► return + cache to Redis
+```
+
+| Tier | What happens | Typical time |
+|------|-------------|-------------|
+| 1 | Bun `fetch()` with real browser headers | < 100ms |
+| 2 | Inject cached `cf_clearance` into browser context | ~500ms |
+| 3 | Fresh Camoufox solve, save cookies to Redis | 4–15s |
+| 4 | Same but through residential proxy | 15–45s |
+
+Most requests hit Tier 1 (no protection) or Tier 2 (repeat domain, cached session). You pay the full browser solve cost only the first time per domain, or when the cached session expires.
+
+## Why Camoufox and not Puppeteer
+
+Stealth plugins for Puppeteer and Playwright work by injecting JavaScript to override things like `navigator.webdriver` and `window.chrome`. The problem is that Cloudflare's challenge code runs in the same browser engine — it can detect that those properties were overridden after the fact, because JS patching leaves visible gaps.
+
+[Camoufox](https://camoufox.com) is a Firefox fork that patches fingerprint data at the binary level, in the browser's C++ and Juggler protocol code. There is nothing for the challenge to detect. The browser presents as a real Windows Firefox instance with a consistent WebGL renderer, canvas fingerprint, plugin list, and hardware profile.
+
+The result is that CF triggers its fast-path evaluation. Challenge resolution takes 3-4 seconds instead of 40.
+
+TRAWL launches Camoufox with a few important flags:
+- `geoip: true` — browser timezone, locale, and geolocation API all report the server's actual location, keeping the fingerprint internally consistent
+- `block_webrtc: true` — prevents WebRTC from leaking the real server IP when running behind a proxy
+- `main_world_eval: true` — needed to execute JavaScript in the main world scope, which is required to reach into Turnstile's closed shadow DOM
+
+Fresh context also matters more than expected. A reused browser context accumulates localStorage, service workers, and JS engine state that CF's behavioral scoring flags as suspicious — challenge resolution on a warm context can hit 40s. A fresh context with no prior state gets fast-path treatment: challenge clears in 3-4s total.
+
+## Redis session cache
+
+After a successful Tier 3 or Tier 4 solve, the `cf_clearance` cookie and session data are saved to Redis:
+
+```
+session:{domain}  →  { cookies, userAgent, savedAt }  (TTL: 1h default)
+```
+
+Tier 2 loads that entry, injects the cookies into a fresh browser context, and navigates to the URL. If CF does not re-challenge, the whole thing completes in ~500ms — the time of a browser page load, not a challenge solve.
+
+If the session is stale or CF challenges again, the entry is invalidated and the request drops to Tier 3. Active domains keep their session alive indefinitely because a successful Tier 2 hit resets the TTL.
+
+Redis is optional. Without it, Tier 2 is skipped entirely and all requests fall through to Tier 3.
+
+## Captcha solving
+
+CF and Imperva are bot gates, not captchas. Once past the gate, some sites also drop in-page captcha widgets. TRAWL handles four:
+
+**Cloudflare Turnstile** — With Camoufox and a clean IP, Turnstile often silent-passes (it evaluates behavioral signals and skips the visible checkbox). When a click is needed, TRAWL tries four strategies in order: shadow DOM traversal via a monkeypatched `attachShadow` that exposes closed shadow roots, then accessibility selectors inside the iframe, then a bounding-box coordinate click calculated from the parent page, then Tab + Space keyboard.
+
+**reCAPTCHA v2** — The fingerprint often earns a silent pass. If an image grid challenge appears, TRAWL switches to audio mode: downloads the audio MP3, converts it to FLAC at 8kHz via ffmpeg, and POSTs to Google's public Speech-to-Text API. Google's own accessibility STT model transcribes Google's own audio challenge correctly most of the time. The API key used is the same one the open-source [Buster](https://github.com/dessant/buster) extension has used since 2013. Retries up to 3 times with fresh audio challenges.
+
+**hCaptcha** — Click the checkbox, wait 3 seconds for `aria-checked="true"`. With a real Firefox fingerprint on a non-datacenter IP, hCaptcha frequently auto-passes without any image grid appearing.
+
+**GeeTest v4** — Screenshots the challenge, converts to raw RGB bytes via ffmpeg, finds the slider gap by scanning columns for minimum brightness (shadow) and maximum edge score (notch boundary), then drags with a 35-step bezier curve plus per-step random jitter. Retries at offset adjustments if the first attempt misses.
+
+## FlareSolverr v2 API compatibility
+
+The `/v1` endpoint accepts and returns the FlareSolverr v2 contract exactly:
+
+```json
+{ "cmd": "request.get", "url": "https://example.com", "maxTimeout": 60000 }
+```
+
+```json
+{
+  "status": "ok",
+  "solution": { "url": "...", "response": "...", "cookies": [], "userAgent": "..." },
+  "version": "2.0.0"
+}
+```
+
+In Prowlarr, Jackett, or any other FlareSolverr client:
+
+```bash
+# Before
+http://flaresolverr:8191
+
+# After
+http://trawl:8191
+```
+
+TRAWL also exposes a native `/scrape` endpoint that returns additional context: which tier was used, whether a session was cached, per-tier timings, and which captchas were solved.
+
+## Running it
+
+```yaml
+services:
+  trawl:
+    image: ghcr.io/germondai/trawl:latest
+    ports:
+      - "8191:8191"
+    environment:
+      REDIS_URL: redis://redis:6379
+      BROWSER_POOL_SIZE: 3
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+```
+
+Key environment variables:
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `REDIS_URL` | — | Optional. Enables Tier 2 session cache |
+| `BROWSER_POOL_SIZE` | `3` | Concurrent browser instances |
+| `DATACENTER_PROXY_URL` | — | Optional. Proxy for Tier 3 attempts |
+| `RESIDENTIAL_PROXY_URL` | — | Optional. Enables Tier 4 |
+| `SESSION_TTL_SECONDS` | `3600` | How long to cache CF sessions in Redis |
+
+Two image tags: `:latest` requires kernel 5.1+ and AVX2. `:baseline` targets older hardware — tested on a Synology DS920+ (Celeron J4125, kernel 4.4, DSM 7.3.2).
+
+The code is at [github.com/germondai/trawl](https://github.com/germondai/trawl). It has been running on my homelab since I built it with no breakage on CF updates — which was the main thing FlareSolverr kept failing on.
